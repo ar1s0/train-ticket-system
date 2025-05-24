@@ -43,6 +43,80 @@ class TrainService:
         if Train.delete({'train_number': train_number}):
             return True, f"Train {train_number} deleted successfully."
         return False, f"Failed to delete train {train_number}."
+        
+    @staticmethod
+    def get_train_route(train_number):
+        """获取列车的完整行车轨迹，包括起点、终点和所有中间站"""
+        # 验证列车是否存在
+        train = Train.find_one({'train_number': train_number})
+        if not train:
+            return [], f"Train {train_number} not found."
+
+        # 获取起点和终点站信息
+        dep_station = Station.find_one({'station_id': train['departure_station_id']})
+        arr_station = Station.find_one({'station_id': train['arrival_station_id']})
+        
+        if not dep_station or not arr_station:
+            return [], "Station information missing for this train."
+
+        # 查询所有停靠站（按顺序）
+        stopovers_query = """
+        SELECT 
+            st.station_name,
+            st.station_code,
+            TIME_FORMAT(s.arrival_time, '%%H:%%i') AS arrival_time,
+            TIME_FORMAT(s.departure_time, '%%H:%%i') AS departure_time,
+            s.stop_order
+        FROM 
+            Stopovers s
+        JOIN 
+            Stations st ON s.station_id = st.station_id
+        WHERE 
+            s.train_number = %s
+        ORDER BY 
+            s.stop_order
+        """
+        stopovers = db.execute_query(stopovers_query, (train_number,), fetch_all=True)
+
+        # 构建完整路线
+        route_data = []
+        
+        # 添加起点站
+        route_data.append([
+            1,
+            dep_station['station_name'],
+            dep_station['station_code'],
+            "-",  # 起点站无到达时间
+            stopovers[0]['departure_time'] if stopovers else "-",  # 取第一个停靠站的出发时间作为起点站出发时间
+            "Departure"
+        ])
+
+        # 添加中间站
+        for i, stop in enumerate(stopovers or []):
+            route_data.append([
+                i + 2,  # 顺序号
+                stop['station_name'],
+                stop['station_code'],
+                stop['arrival_time'],
+                stop['departure_time'],
+                "Stopover"
+            ])
+
+        # 添加终点站
+        route_data.append([
+            len(route_data) + 1,
+            arr_station['station_name'],
+            arr_station['station_code'],
+            stopovers[-1]['arrival_time'] if stopovers else "-",  # 取最后一个停靠站的到达时间作为终点站到达时间
+            "-",  # 终点站无出发时间
+            "Arrival"
+        ])
+
+        # 处理直达车特殊情况
+        if not stopovers:
+            return route_data, "This is a direct train with no stopovers."
+        
+        return route_data, None
 
     @staticmethod
     def list_all_trains():

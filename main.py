@@ -36,15 +36,15 @@ def display_table(get_data_func, columns):
     data_window.title("Data View")
     data_window.geometry("800x400")
 
-    # 创建 Treeview
+    # 创建Treeview
     tree = ttk.Treeview(data_window)
     tree["columns"] = columns
-    tree["show"] = "headings"  # 只显示指定的列
+    tree["show"] = "headings"
 
     # 配置列
     for col in columns:
-        tree.heading(col, text=col)  # 设置列标题
-        tree.column(col, width=100)  # 设置列宽
+        tree.heading(col, text=col)
+        tree.column(col, width=100)
 
     # 添加滚动条
     vsb = ttk.Scrollbar(data_window, orient="vertical", command=tree.yview)
@@ -61,23 +61,22 @@ def display_table(get_data_func, columns):
     data_window.grid_columnconfigure(0, weight=1)
 
     try:
-        # 获取数据
         data, error = get_data_func()
         
-        # 如果有错误消息，显示提示
         if error:
             messagebox.showinfo("Information", error)
         
-        # 显示数据
         if data:
             for row in data:
-                tree.insert("", "end", values=row)
+                # 直接使用数据库返回的格式化数据
+                tree.insert("", "end", values=[str(item) if item is not None else "-" for item in row])
                 
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
     # 添加关闭按钮
     Button(data_window, text="Close", command=data_window.destroy).grid(row=2, column=0, pady=10)
+
 
 # --- Menu Frames ---
 def show_main_menu_frame():
@@ -86,6 +85,10 @@ def show_main_menu_frame():
     main_window.title("Train Ticket System - Information Display")
 
     Label(main_window, text="Information Display Menu", font=("Arial", 16)).pack(pady=20)
+
+        # 添加新按钮
+    Button(main_window, text="View Train Route", 
+           command=show_train_route_frame, width=30).pack(pady=5)
 
     Button(main_window, text="View Train Information", 
            command=lambda: display_table(
@@ -106,6 +109,22 @@ def show_main_menu_frame():
            command=show_ticket_info_frame, width=30).pack(pady=5)
 
     Button(main_window, text="Exit", command=main_window.quit, width=30).pack(pady=5)
+
+def show_train_route_frame():
+    clear_frame(main_window)
+    Label(main_window, text="Train Route Information", font=("Arial", 14)).pack(pady=10)
+
+    Label(main_window, text="Train Number:").pack()
+    train_num_entry = Entry(main_window)
+    train_num_entry.pack()
+    
+    Button(main_window, text="View Route", 
+           command=lambda: display_table(
+               lambda: TrainService.get_train_route(train_num_entry.get()),
+               ["Order", "Station Name", "Code", "Arrival Time", "Departure Time", "Type"]
+           )).pack(pady=5)
+
+    Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
 
 def show_price_info_frame():
     clear_frame(main_window)
