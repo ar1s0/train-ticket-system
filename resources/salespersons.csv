@@ -1,0 +1,6 @@
+salesperson_id,salesperson_name,contact_number,email,password_hash,role
+SP001,Zhang Wei,13800138001,zhang.wei@example.com,1,Admin
+SP002,Li Na,13800138002,li.na@example.com,2,Salesperson
+SP003,Wang Fang,13800138003,wang.fang@example.com,3,Salesperson
+SP004,Liu Yang,13800138004,liu.yang@example.com,4,Salesperson
+SP005,Chen Hao,13800138005,chen.hao@example.com,5,Salesperson

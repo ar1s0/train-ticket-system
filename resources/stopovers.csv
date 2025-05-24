@@ -1,0 +1,9 @@
+train_number,station_name,arrival_time,departure_time,stop_order
+G1,Hangzhou,08:30:00,08:33:00,2
+G1,Wuhan,09:45:00,09:48:00,3
+D3,Xi'an,12:15:00,12:20:00,2
+D3,Nanjing,14:30:00,14:35:00,3
+T7,Hangzhou,10:00:00,10:05:00,2
+T7,Wuhan,13:30:00,13:35:00,3
+Z9,Shenzhen,16:45:00,16:50:00,2
+Z9,Chengdu,19:30:00,19:35:00,3 

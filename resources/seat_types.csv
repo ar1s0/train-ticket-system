@@ -1,0 +1,16 @@
+train_type,seat_type,base_price
+High-Speed,Business Class,500
+High-Speed,First Class,300
+High-Speed,Second Class,150
+Bullet,Business Class,400
+Bullet,First Class,250
+Bullet,Second Class,120
+Express,Hard Seat,80
+Express,Soft Seat,120
+Express,Hard Sleeper,180
+Fast,Hard Seat,70
+Fast,Soft Seat,110
+Fast,Hard Sleeper,160
+Fast,Soft Sleeper,220
+Direct,Hard Sleeper,150
+Direct,Soft Sleeper,250

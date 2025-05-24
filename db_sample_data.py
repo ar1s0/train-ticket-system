@@ -1,10 +1,11 @@
-# db_sample_data.py
-
 import mysql.connector
 from mysql.connector import Error
 from db_config import DB_CONFIG
 import random
 from datetime import datetime, timedelta
+import csv
+import json
+import os
 
 def insert_sample_data():
     """
@@ -18,15 +19,15 @@ def insert_sample_data():
         clear_existing_data(cursor)
         
         # Insert sample data in correct dependency order
-        station_ids = insert_stations(cursor)
-        train_numbers = insert_trains(cursor, station_ids)
-        insert_stopovers(cursor, train_numbers, station_ids)
-        price_data = insert_prices(cursor, train_numbers, station_ids)
-        salesperson_ids = insert_salespersons(cursor)
+        station_ids = insert_stations_from_csv(cursor)
+        train_numbers = insert_trains_from_csv(cursor, station_ids)
+        insert_stopovers_from_csv(cursor, train_numbers, station_ids)
+        price_data = insert_prices_from_config(cursor, train_numbers, station_ids)
+        salesperson_ids = insert_salespersons_from_csv(cursor)
         daily_status = insert_daily_train_status(cursor, train_numbers)
         
         # Insert sales orders with guaranteed valid data
-        insert_sales_orders(cursor, train_numbers, station_ids, salesperson_ids, price_data)
+        insert_sample_orders(cursor, train_numbers, station_ids, salesperson_ids, price_data)
         
         # Insert refunds for some orders
         insert_refunds(cursor, salesperson_ids)
@@ -67,166 +68,119 @@ def clear_existing_data(cursor):
     # Re-enable foreign key checks
     cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
 
-def insert_stations(cursor):
-    """Insert sample stations and return station_id mapping"""
-    stations = [
-        ("Beijing", "BJ"),
-        ("Shanghai", "SH"),
-        ("Guangzhou", "GZ"),
-        ("Shenzhen", "SZ"),
-        ("Chengdu", "CD"),
-        ("Chongqing", "CQ"),
-        ("Hangzhou", "HZ"),
-        ("Wuhan", "WH"),
-        ("Xi'an", "XA"),
-        ("Nanjing", "NJ")
-    ]
+def read_csv_file(filename):
+    """Helper function to read CSV files from resources directory"""
+    filepath = os.path.join('resources', filename)
+    with open(filepath, mode='r', encoding='utf-8') as file:
+        return list(csv.DictReader(file))
+
+def insert_stations_from_csv(cursor):
+    """Insert stations from CSV file and return station_id mapping"""
+    stations_data = read_csv_file('stations.csv')
     
     station_ids = {}
-    for name, code in stations:
+    for row in stations_data:
         cursor.execute(
             "INSERT INTO `Stations` (`station_name`, `station_code`) VALUES (%s, %s)",
-            (name, code)
+            (row['station_name'], row['station_code'])
         )
         station_id = cursor.lastrowid
-        station_ids[name] = station_id
+        station_ids[row['station_name']] = station_id
     
-    print(f"Inserted {len(stations)} stations")
+    print(f"Inserted {len(stations_data)} stations")
     return station_ids
 
-def insert_trains(cursor, station_ids):
-    """Insert sample trains and return train numbers"""
-    trains = [
-        ("G1", "High-Speed", 500, "Beijing", "Shanghai"),
-        ("G2", "High-Speed", 500, "Shanghai", "Beijing"),
-        ("D3", "Bullet", 400, "Beijing", "Guangzhou"),
-        ("D4", "Bullet", 400, "Guangzhou", "Beijing"),
-        ("K5", "Express", 300, "Guangzhou", "Shenzhen"),
-        ("K6", "Express", 300, "Shenzhen", "Guangzhou"),
-        ("T7", "Fast", 350, "Beijing", "Chengdu"),
-        ("T8", "Fast", 350, "Chengdu", "Beijing"),
-        ("Z9", "Direct", 200, "Shanghai", "Chongqing"),
-        ("Z10", "Direct", 200, "Chongqing", "Shanghai")
-    ]
+def insert_trains_from_csv(cursor, station_ids):
+    """Insert trains from CSV file and return train numbers"""
+    trains_data = read_csv_file('trains.csv')
     
     train_numbers = []
-    for number, train_type, seats, dep_station, arr_station in trains:
-        dep_id = station_ids[dep_station]
-        arr_id = station_ids[arr_station]
+    for row in trains_data:
+        dep_id = station_ids[row['departure_station']]
+        arr_id = station_ids[row['arrival_station']]
         
         cursor.execute(
             "INSERT INTO `Trains` (`train_number`, `train_type`, `total_seats`, `departure_station_id`, `arrival_station_id`) VALUES (%s, %s, %s, %s, %s)",
-            (number, train_type, seats, dep_id, arr_id)
+            (row['train_number'], row['train_type'], int(row['total_seats']), dep_id, arr_id)
         )
-        train_numbers.append(number)
+        train_numbers.append(row['train_number'])
     
-    print(f"Inserted {len(trains)} trains")
+    print(f"Inserted {len(trains_data)} trains")
     return train_numbers
 
-def insert_stopovers(cursor, train_numbers, station_ids):
-    """Insert sample stopovers"""
-    stopovers = [
-        ("G1", "Hangzhou", "08:30:00", "08:33:00", 2),
-        ("G1", "Wuhan", "09:45:00", "09:48:00", 3),
-        ("D3", "Xi'an", "12:15:00", "12:20:00", 2),
-        ("D3", "Nanjing", "14:30:00", "14:35:00", 3),
-        ("T7", "Hangzhou", "10:00:00", "10:05:00", 2),
-        ("T7", "Wuhan", "13:30:00", "13:35:00", 3),
-        ("Z9", "Shenzhen", "16:45:00", "16:50:00", 2),
-        ("Z9", "Chengdu", "19:30:00", "19:35:00", 3)
-    ]
+def insert_stopovers_from_csv(cursor, train_numbers, station_ids):
+    """Insert stopovers from CSV file"""
+    stopovers_data = read_csv_file('stopovers.csv')
     
-    for train_num, station_name, arr_time, dep_time, stop_order in stopovers:
-        if train_num not in train_numbers:
+    inserted_count = 0
+    for row in stopovers_data:
+        if row['train_number'] not in train_numbers:
             continue
             
-        station_id = station_ids.get(station_name)
+        station_id = station_ids.get(row['station_name'])
         if not station_id:
             continue
             
         cursor.execute(
             "INSERT INTO `Stopovers` (`train_number`, `station_id`, `arrival_time`, `departure_time`, `stop_order`) VALUES (%s, %s, %s, %s, %s)",
-            (train_num, station_id, arr_time, dep_time, stop_order)
+            (row['train_number'], station_id, row['arrival_time'], row['departure_time'], int(row['stop_order']))
         )
+        inserted_count += 1
     
-    print(f"Inserted {len(stopovers)} stopovers")
+    print(f"Inserted {inserted_count} stopovers")
 
-def insert_prices(cursor, train_numbers, station_ids):
-    """Insert sample prices and return price data"""
-    seat_types = [
-        "Hard Seat", "Soft Seat", "Hard Sleeper", 
-        "Soft Sleeper", "Business Class", "First Class", "Second Class"
-    ]
+def insert_prices_from_config(cursor, train_numbers, station_ids):
+    """Insert prices based on seat type configuration"""
+    seat_types_data = read_csv_file('seat_types.csv')
     
     price_data = []
-    base_prices = {
-        "High-Speed": {"Business Class": 500, "First Class": 300, "Second Class": 150},
-        "Bullet": {"Business Class": 400, "First Class": 250, "Second Class": 120},
-        "Express": {"Hard Seat": 80, "Soft Seat": 120, "Hard Sleeper": 180},
-        "Fast": {"Hard Seat": 70, "Soft Seat": 110, "Hard Sleeper": 160, "Soft Sleeper": 220},
-        "Direct": {"Hard Sleeper": 150, "Soft Sleeper": 250}
-    }
     
-    for train_num in train_numbers[:5]:  # Only price some trains for demo
-        # Get train type and route
+    for row in seat_types_data:
+        # Get all trains of this type
         cursor.execute(
-            "SELECT `train_type`, `departure_station_id`, `arrival_station_id` FROM `Trains` WHERE `train_number` = %s",
-            (train_num,)
+            "SELECT `train_number`, `departure_station_id`, `arrival_station_id` FROM `Trains` WHERE `train_type` = %s",
+            (row['train_type'],)
         )
-        train_type, dep_id, arr_id = cursor.fetchone()
+        trains = cursor.fetchall()
         
-        # Add prices based on train type
-        for seat_type in seat_types:
-            # Get base price for this train type and seat type
-            base_price = base_prices.get(train_type, {}).get(seat_type)
-            if base_price is None:
-                # Default pricing if not specified
-                if "Seat" in seat_type:
-                    base_price = random.randint(50, 150)
-                elif "Sleeper" in seat_type:
-                    base_price = random.randint(150, 300)
-                else:
-                    base_price = random.randint(200, 500)
-            
-            # Add some random variation
-            price = base_price * random.uniform(0.9, 1.1)
-            price = round(price, 2)
+        for train_num, dep_id, arr_id in trains:
+            if train_num not in train_numbers:
+                continue
+                
+            # Add some random variation to base price
+            base_price = float(row['base_price'])
+            price = round(base_price * random.uniform(0.9, 1.1), 2)
             
             cursor.execute(
                 "INSERT INTO `Prices` (`train_number`, `departure_station_id`, `arrival_station_id`, `seat_type`, `price`) VALUES (%s, %s, %s, %s, %s)",
-                (train_num, dep_id, arr_id, seat_type, price)
+                (train_num, dep_id, arr_id, row['seat_type'], price)
             )
             
             price_data.append({
                 "train_number": train_num,
                 "departure_station_id": dep_id,
                 "arrival_station_id": arr_id,
-                "seat_type": seat_type,
+                "seat_type": row['seat_type'],
                 "price": price
             })
     
     print(f"Inserted {len(price_data)} prices")
     return price_data
 
-def insert_salespersons(cursor):
-    """Insert sample salespersons and return their IDs"""
-    salespersons = [
-        ("SP001", "Zhang Wei", "13800138001", "zhang.wei@example.com", "1", "Admin"),
-        ("SP002", "Li Na", "13800138002", "li.na@example.com", "2", "Salesperson"),
-        ("SP003", "Wang Fang", "13800138003", "wang.fang@example.com", "3", "Salesperson"),
-        ("SP004", "Liu Yang", "13800138004", "liu.yang@example.com", "4", "Salesperson"),
-        ("SP005", "Chen Hao", "13800138005", "chen.hao@example.com", "5", "Salesperson")
-    ]
+def insert_salespersons_from_csv(cursor):
+    """Insert salespersons from CSV file and return their IDs"""
+    salespersons_data = read_csv_file('salespersons.csv')
     
     salesperson_ids = []
-    for sp_id, name, contact, email, pwd, role in salespersons:
+    for row in salespersons_data:
         cursor.execute(
             "INSERT INTO `Salespersons` (`salesperson_id`, `salesperson_name`, `contact_number`, `email`, `password_hash`, `role`) VALUES (%s, %s, %s, %s, %s, %s)",
-            (sp_id, name, contact, email, pwd, role)
+            (row['salesperson_id'], row['salesperson_name'], row['contact_number'], 
+             row['email'], row['password_hash'], row['role'])
         )
-        salesperson_ids.append(sp_id)
+        salesperson_ids.append(row['salesperson_id'])
     
-    print(f"Inserted {len(salespersons)} salespersons")
+    print(f"Inserted {len(salespersons_data)} salespersons")
     return salesperson_ids
 
 def insert_daily_train_status(cursor, train_numbers):
@@ -245,7 +199,7 @@ def insert_daily_train_status(cursor, train_numbers):
         # Create status for next 7 days
         for day in range(7):
             date = today + timedelta(days=day)
-            remaining = random.randint(max(0, total_seats-50), total_seats)  # Ensure some seats available
+            remaining = random.randint(max(0, total_seats-50), total_seats)
             status_data.append((train_num, date, remaining))
     
     # Insert status
@@ -258,7 +212,7 @@ def insert_daily_train_status(cursor, train_numbers):
     print(f"Inserted {len(status_data)} daily train status records")
     return status_data
 
-def insert_sales_orders(cursor, train_numbers, station_ids, salesperson_ids, price_data):
+def insert_sample_orders(cursor, train_numbers, station_ids, salesperson_ids, price_data):
     """Insert sample sales orders with guaranteed valid data"""
     orders = []
     id_types = ["ID Card", "Passport", "Driver License"]

@@ -1,0 +1,11 @@
+train_number,train_type,total_seats,departure_station,arrival_station
+G1,High-Speed,500,Beijing,Shanghai
+G2,High-Speed,500,Shanghai,Beijing
+D3,Bullet,400,Beijing,Guangzhou
+D4,Bullet,400,Guangzhou,Beijing
+K5,Express,300,Guangzhou,Shenzhen
+K6,Express,300,Shenzhen,Guangzhou
+T7,Fast,350,Beijing,Chengdu
+T8,Fast,350,Chengdu,Beijing
+Z9,Direct,200,Shanghai,Chongqing
+Z10,Direct,200,Chongqing,Shanghai
