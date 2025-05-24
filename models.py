@@ -16,20 +16,34 @@ class BaseModel:
     @classmethod
     def find_all(cls, conditions=None):
         query = f"SELECT * FROM `{cls._table_name}`"
-        params = None
+        params = []
         if conditions:
-            where_clauses = [f"`{k}` = %s" for k in conditions.keys()]
-            query += " WHERE " + " AND ".join(where_clauses)
-            params = tuple(conditions.values())
-        return db.execute_query(query, params, fetch_all=True)
+            where_clauses = []
+            for k, v in conditions.items():
+                if v is not None:  # 只处理非None的条件
+                    where_clauses.append(f"`{k}` = %s")
+                    params.append(v)
+            if where_clauses:
+                query += " WHERE " + " AND ".join(where_clauses)
+        return db.execute_query(query, tuple(params) if params else None, fetch_all=True)
 
     @classmethod
     def find_one(cls, conditions):
-        query = f"SELECT * FROM `{cls._table_name}` WHERE "
-        where_clauses = [f"`{k}` = %s" for k in conditions.keys()]
-        query += " AND ".join(where_clauses)
-        params = tuple(conditions.values())
-        return db.execute_query(query, params, fetch_one=True)
+        if not conditions:
+            return None
+            
+        where_clauses = []
+        params = []
+        for k, v in conditions.items():
+            if v is not None:  # 只处理非None的条件
+                where_clauses.append(f"`{k}` = %s")
+                params.append(v)
+        
+        if not where_clauses:
+            return None
+            
+        query = f"SELECT * FROM `{cls._table_name}` WHERE " + " AND ".join(where_clauses)
+        return db.execute_query(query, tuple(params), fetch_one=True)
 
     def save(self):
         # Determine if it's an insert or update
@@ -58,11 +72,21 @@ class BaseModel:
 
     @classmethod
     def delete(cls, conditions):
-        query = f"DELETE FROM `{cls._table_name}` WHERE "
-        where_clauses = [f"`{k}` = %s" for k in conditions.keys()]
-        query += " AND ".join(where_clauses)
-        params = tuple(conditions.values())
-        return db.execute_query(query, params)
+        if not conditions:
+            return False
+            
+        where_clauses = []
+        params = []
+        for k, v in conditions.items():
+            if v is not None:  # 只处理非None的条件
+                where_clauses.append(f"`{k}` = %s")
+                params.append(v)
+        
+        if not where_clauses:
+            return False
+            
+        query = f"DELETE FROM `{cls._table_name}` WHERE " + " AND ".join(where_clauses)
+        return db.execute_query(query, tuple(params))
 
 
 class Station(BaseModel):
@@ -71,6 +95,7 @@ class Station(BaseModel):
 
     def __init__(self, station_id=None, station_name=None, station_code=None):
         super().__init__(station_id=station_id, station_name=station_name, station_code=station_code)
+
 
 class Train(BaseModel):
     _table_name = "Trains"
@@ -83,6 +108,7 @@ class Train(BaseModel):
             departure_station_id=departure_station_id, arrival_station_id=arrival_station_id
         )
 
+
 class Stopover(BaseModel):
     _table_name = "Stopovers"
     _primary_key = "stopover_id"
@@ -93,6 +119,7 @@ class Stopover(BaseModel):
             stopover_id=stopover_id, train_number=train_number, station_id=station_id,
             arrival_time=arrival_time, departure_time=departure_time, stop_order=stop_order
         )
+
 
 class Price(BaseModel):
     _table_name = "Prices"
@@ -105,6 +132,7 @@ class Price(BaseModel):
             arrival_station_id=arrival_station_id, seat_type=seat_type, price=price
         )
 
+
 class Salesperson(BaseModel):
     _table_name = "Salespersons"
     _primary_key = "salesperson_id"
@@ -116,44 +144,65 @@ class Salesperson(BaseModel):
             email=email, password_hash=password_hash, role=role
         )
 
+
 class DailyTrainStatus(BaseModel):
     _table_name = "DailyTrainStatus"
-    _primary_key = ["train_number", "departure_date"] # Composite primary key
+    _primary_key = ["train_number", "departure_date"]  # Composite primary key
 
     def __init__(self, train_number=None, departure_date=None, remaining_seats=None):
         super().__init__(
             train_number=train_number, departure_date=departure_date, remaining_seats=remaining_seats
         )
 
+    @classmethod
+    def find_one(cls, conditions):
+        # 特殊处理复合主键
+        required_keys = set(cls._primary_key)
+        if not required_keys.issubset(set(conditions.keys())):
+            return None
+            
+        return super().find_one(conditions)
+
     def save(self):
-        # Override save for composite primary key
-        if self.train_number and self.departure_date:
-            # Try to update first
+        # 确保复合主键都有值
+        if not all(getattr(self, pk) for pk in self._primary_key):
+            return None
+            
+        # 尝试查找现有记录
+        conditions = {pk: getattr(self, pk) for pk in self._primary_key}
+        existing = self.find_one(conditions)
+        
+        if existing:
+            # 更新现有记录
             updates = []
             params = []
             for k, v in self.__dict__.items():
-                if k not in self._primary_key and k != "_table_name" and k != "_primary_key":
+                if k not in self._primary_key and not k.startswith('_'):
                     updates.append(f"`{k}` = %s")
                     params.append(v)
-
+            
             if updates:
-                query = f"UPDATE `{self._table_name}` SET {', '.join(updates)} WHERE `train_number` = %s AND `departure_date` = %s"
-                params.extend([self.train_number, self.departure_date])
-                row_count = db.execute_query(query, tuple(params))
-                if row_count > 0:
-                    return row_count
-
-            # If no update or update failed, insert
+                query = f"UPDATE `{self._table_name}` SET {', '.join(updates)} WHERE "
+                where_clauses = [f"`{pk}` = %s" for pk in self._primary_key]
+                query += " AND ".join(where_clauses)
+                params.extend([getattr(self, pk) for pk in self._primary_key])
+                return db.execute_query(query, tuple(params))
+        else:
+            # 插入新记录
             columns = []
-            values = []
+            placeholders = []
+            params = []
             for k, v in self.__dict__.items():
-                if k != "_table_name" and k != "_primary_key":
+                if not k.startswith('_'):
                     columns.append(f"`{k}`")
-                    values.append(v)
-            placeholders = ", ".join(["%s"] * len(columns))
-            query = f"INSERT INTO `{self._table_name}` ({', '.join(columns)}) VALUES ({placeholders})"
-            return db.execute_query(query, tuple(values))
+                    placeholders.append("%s")
+                    params.append(v)
+            
+            query = f"INSERT INTO `{self._table_name}` ({', '.join(columns)}) VALUES ({', '.join(placeholders)})"
+            return db.execute_query(query, tuple(params))
+        
         return None
+
 
 class SalesOrder(BaseModel):
     _table_name = "SalesOrders"
@@ -173,7 +222,8 @@ class SalesOrder(BaseModel):
             order_status=order_status
         )
         if self.order_id is None:
-            self.order_id = str(uuid.uuid4()) # Generate a UUID for the order_id
+            self.order_id = str(uuid.uuid4())  # Generate a UUID for the order_id
+
 
 class Refund(BaseModel):
     _table_name = "Refunds"
@@ -186,4 +236,4 @@ class Refund(BaseModel):
             refund_amount=refund_amount, salesperson_id=salesperson_id
         )
         if self.refund_id is None:
-            self.refund_id = str(uuid.uuid4()) # Generate a UUID for the refund_id
+            self.refund_id = str(uuid.uuid4())  # Generate a UUID for the refund_id
