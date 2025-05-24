@@ -32,12 +32,12 @@ def insert_sample_data():
         insert_refunds(cursor, salesperson_ids)
         
         conn.commit()
-        print("✅ Sample data inserted successfully!")
+        print("Sample data inserted successfully!")
         return True
         
     except Error as e:
         conn.rollback()
-        print(f"❌ Error inserting sample data: {e}")
+        print(f"Error inserting sample data: {e}")
         return False
         
     finally:
@@ -60,9 +60,9 @@ def clear_existing_data(cursor):
     for table in tables:
         try:
             cursor.execute(f"TRUNCATE TABLE `{table}`")
-            print(f"🧹 Cleared data from {table}")
+            print(f"Cleared data from {table}")
         except Error as e:
-            print(f"⚠️ Error clearing {table}: {e}")
+            print(f"Error clearing {table}: {e}")
     
     # Re-enable foreign key checks
     cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
@@ -91,7 +91,7 @@ def insert_stations(cursor):
         station_id = cursor.lastrowid
         station_ids[name] = station_id
     
-    print(f"🚉 Inserted {len(stations)} stations")
+    print(f"Inserted {len(stations)} stations")
     return station_ids
 
 def insert_trains(cursor, station_ids):
@@ -120,7 +120,7 @@ def insert_trains(cursor, station_ids):
         )
         train_numbers.append(number)
     
-    print(f"🚆 Inserted {len(trains)} trains")
+    print(f"Inserted {len(trains)} trains")
     return train_numbers
 
 def insert_stopovers(cursor, train_numbers, station_ids):
@@ -149,7 +149,7 @@ def insert_stopovers(cursor, train_numbers, station_ids):
             (train_num, station_id, arr_time, dep_time, stop_order)
         )
     
-    print(f"🛑 Inserted {len(stopovers)} stopovers")
+    print(f"Inserted {len(stopovers)} stopovers")
 
 def insert_prices(cursor, train_numbers, station_ids):
     """Insert sample prices and return price data"""
@@ -205,7 +205,7 @@ def insert_prices(cursor, train_numbers, station_ids):
                 "price": price
             })
     
-    print(f"💰 Inserted {len(price_data)} prices")
+    print(f"Inserted {len(price_data)} prices")
     return price_data
 
 def insert_salespersons(cursor):
@@ -226,7 +226,7 @@ def insert_salespersons(cursor):
         )
         salesperson_ids.append(sp_id)
     
-    print(f"👔 Inserted {len(salespersons)} salespersons")
+    print(f"Inserted {len(salespersons)} salespersons")
     return salesperson_ids
 
 def insert_daily_train_status(cursor, train_numbers):
@@ -255,7 +255,7 @@ def insert_daily_train_status(cursor, train_numbers):
             (train_num, date, remaining)
         )
     
-    print(f"📅 Inserted {len(status_data)} daily train status records")
+    print(f"Inserted {len(status_data)} daily train status records")
     return status_data
 
 def insert_sales_orders(cursor, train_numbers, station_ids, salesperson_ids, price_data):
@@ -311,7 +311,7 @@ def insert_sales_orders(cursor, train_numbers, station_ids, salesperson_ids, pri
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Sold')
             """, order)
         
-        print(f"🎫 Inserted {len(orders)} sales orders")
+        print(f"Inserted {len(orders)} sales orders")
         
         # Update remaining seats
         for order in orders:
@@ -321,7 +321,7 @@ def insert_sales_orders(cursor, train_numbers, station_ids, salesperson_ids, pri
                 WHERE `train_number` = %s AND `departure_date` = %s
             """, (order[1], order[2]))
     else:
-        print("⚠️ No valid orders could be created")
+        print("No valid orders could be created")
 
 def insert_refunds(cursor, salesperson_ids):
     """Insert sample refunds for some orders"""
@@ -370,13 +370,13 @@ def insert_refunds(cursor, salesperson_ids):
                 WHERE `train_number` = %s AND `departure_date` = %s
             """, (orders[refunds.index(refund)][1], orders[refunds.index(refund)][2]))
         
-        print(f"💸 Inserted {len(refunds)} refunds")
+        print(f"Inserted {len(refunds)} refunds")
     else:
-        print("⚠️ No orders available for refund")
+        print("No orders available for refund")
 
 if __name__ == "__main__":
     print("=== Inserting sample data ===")
     if insert_sample_data():
-        print("✅ Sample data insertion successful!")
+        print("Sample data insertion successful!")
     else:
-        print("❌ Sample data insertion failed.")
+        print("Sample data insertion failed.")
