@@ -30,28 +30,54 @@ def validate_date_input(date_str):
     except ValueError:
         return None
 
-def display_table(get_data_func, tree):
-    # 清除现有数据
-    for item in tree.get_children():
-        tree.delete(item)
-    
+def display_table(get_data_func, columns):
+    # 创建新窗口来显示表格数据
+    data_window = Toplevel(main_window)
+    data_window.title("Data View")
+    data_window.geometry("800x400")
+
+    # 创建 Treeview
+    tree = ttk.Treeview(data_window)
+    tree["columns"] = columns
+    tree["show"] = "headings"  # 只显示指定的列
+
+    # 配置列
+    for col in columns:
+        tree.heading(col, text=col)  # 设置列标题
+        tree.column(col, width=100)  # 设置列宽
+
+    # 添加滚动条
+    vsb = ttk.Scrollbar(data_window, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(data_window, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+    # 放置组件
+    tree.grid(row=0, column=0, sticky="nsew")
+    vsb.grid(row=0, column=1, sticky="ns")
+    hsb.grid(row=1, column=0, sticky="ew")
+
+    # 配置网格权重
+    data_window.grid_rowconfigure(0, weight=1)
+    data_window.grid_columnconfigure(0, weight=1)
+
     try:
+        # 获取数据
         data, error = get_data_func()
         
         # 如果有错误消息，显示提示
         if error:
             messagebox.showinfo("Information", error)
         
-        # 显示数据（即使有错误消息也显示可能存在的数据）
+        # 显示数据
         if data:
             for row in data:
-                try:
-                    tree.insert('', 'end', values=row)
-                except Exception as e:
-                    messagebox.showerror("Error", f"Error inserting row: {str(e)}")
-                    
+                tree.insert("", "end", values=row)
+                
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+    # 添加关闭按钮
+    Button(data_window, text="Close", command=data_window.destroy).grid(row=2, column=0, pady=10)
 
 # --- Menu Frames ---
 def show_main_menu_frame():
