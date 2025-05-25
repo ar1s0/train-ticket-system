@@ -86,7 +86,6 @@ def show_main_menu_frame():
 
     Label(main_window, text="Information Display Menu", font=("Arial", 16)).pack(pady=20)
 
-        # 添加新按钮
     Button(main_window, text="View Train Route", 
            command=show_train_route_frame, width=30).pack(pady=5)
 
@@ -106,7 +105,7 @@ def show_main_menu_frame():
            command=show_price_info_frame, width=30).pack(pady=5)
 
     Button(main_window, text="View Available Tickets", 
-           command=show_ticket_info_frame, width=30).pack(pady=5)
+           command=show_available_ticket_info_frame, width=30).pack(pady=5)
 
     Button(main_window, text="Exit", command=main_window.quit, width=30).pack(pady=5)
 
@@ -116,6 +115,7 @@ def show_train_route_frame():
 
     Label(main_window, text="Train Number:").pack()
     train_num_entry = Entry(main_window)
+    train_num_entry.insert(0, "G1")
     train_num_entry.pack()
     
     Button(main_window, text="View Route", 
@@ -132,6 +132,7 @@ def show_price_info_frame():
 
     Label(main_window, text="Train Number:").pack()
     train_num_entry = Entry(main_window)
+    train_num_entry.insert(0, "G1")
     train_num_entry.pack()
     
     Button(main_window, text="List Prices", 
@@ -142,16 +143,18 @@ def show_price_info_frame():
 
     Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
 
-def show_ticket_info_frame():
+def show_available_ticket_info_frame():
     clear_frame(main_window)
     Label(main_window, text="Available Ticket Information", font=("Arial", 14)).pack(pady=10)
 
     Label(main_window, text="Departure Station:").pack()
     search_dep_entry = Entry(main_window)
+    search_dep_entry.insert(0, "北京")
     search_dep_entry.pack()
     
     Label(main_window, text="Arrival Station:").pack()
     search_arr_entry = Entry(main_window)
+    search_arr_entry.insert(0, "上海")
     search_arr_entry.pack()
     
     Label(main_window, text="Departure Date (YYYY-MM-DD, optional):").pack()
