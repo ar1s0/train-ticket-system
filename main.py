@@ -3,7 +3,7 @@ from tkinter import messagebox, simpledialog, Toplevel, Label, Entry, Button
 from tkinter import ttk
 import datetime
 
-from services import TrainService, StationService, PriceService, TicketSalesService
+from services import TrainService, StationService, PriceService
 from database import db 
 from db_setup import setup_database
 
@@ -22,13 +22,6 @@ def show_message(title, message):
 def show_error(title, message):
     """Helper to display error messages."""
     messagebox.showerror(title, message)
-
-def validate_date_input(date_str):
-    """Validates and converts a YYYY-MM-DD string to a date object."""
-    try:
-        return datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return None
 
 def display_table(get_data_func, columns):
     # 创建新窗口来显示表格数据
@@ -68,7 +61,6 @@ def display_table(get_data_func, columns):
         
         if data:
             for row in data:
-                # 直接使用数据库返回的格式化数据
                 tree.insert("", "end", values=[str(item) if item is not None else "-" for item in row])
                 
     except Exception as e:
@@ -77,14 +69,53 @@ def display_table(get_data_func, columns):
     # 添加关闭按钮
     Button(data_window, text="Close", command=data_window.destroy).grid(row=2, column=0, pady=10)
 
-
 # --- Menu Frames ---
+def show_search_trains_frame():
+    clear_frame(main_window)
+    Label(main_window, text="Search Trains", font=("Arial", 14)).pack(pady=10)
+
+    # 出发站
+    Label(main_window, text="Departure Station:").pack()
+    dep_station_entry = Entry(main_window)
+    dep_station_entry.pack(pady=5)
+
+    # 到达站
+    Label(main_window, text="Arrival Station:").pack()
+    arr_station_entry = Entry(main_window)
+    arr_station_entry.pack(pady=5)
+
+    # 出发日期
+    Label(main_window, text="Departure Date (YYYY-MM-DD):").pack()
+    date_entry = Entry(main_window)
+    # date_entry.insert(0, datetime.datetime.now().strftime("%Y-%m-%d"))
+    date_entry.pack(pady=5)
+    
+    def search_trains():
+        dep_station = dep_station_entry.get()
+        arr_station = arr_station_entry.get()
+        departure_date = date_entry.get()
+        
+        display_table(
+            lambda: PriceService.search_available_tickets(dep_station, arr_station, departure_date),
+            ["Train No", "Date", "From", "To", "Price", "Seats", "Type"]
+        )
+
+    Button(main_window, text="Search", 
+           command=search_trains).pack(pady=10)
+
+    Button(main_window, text="Back to Main Menu", 
+           command=show_main_menu_frame).pack(pady=20)
+
 def show_main_menu_frame():
     global main_window
     clear_frame(main_window)
-    main_window.title("Train Ticket System - Information Display")
+    main_window.title("Train Station Management System")
 
-    Label(main_window, text="Information Display Menu", font=("Arial", 16)).pack(pady=20)
+    Label(main_window, text="Station Management Menu", font=("Arial", 16)).pack(pady=20)
+
+    # 添加搜索列车按钮
+    Button(main_window, text="Search Trains", 
+           command=show_search_trains_frame, width=30).pack(pady=5)
 
     Button(main_window, text="View Train Route", 
            command=show_train_route_frame, width=30).pack(pady=5)
@@ -103,9 +134,6 @@ def show_main_menu_frame():
 
     Button(main_window, text="View Price Information", 
            command=show_price_info_frame, width=30).pack(pady=5)
-
-    Button(main_window, text="View Available Tickets", 
-           command=show_available_ticket_info_frame, width=30).pack(pady=5)
 
     Button(main_window, text="Exit", command=main_window.quit, width=30).pack(pady=5)
 
@@ -138,56 +166,16 @@ def show_price_info_frame():
     Button(main_window, text="List Prices", 
            command=lambda: display_table(
                lambda: PriceService.list_prices_for_train(train_num_entry.get()),
-               ["Departure", "Arrival", "Seat Type", "Price"]
+               ["Departure", "Arrival", "Price"]
            )).pack(pady=5)
 
-    Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
-
-def show_available_ticket_info_frame():
-    clear_frame(main_window)
-    Label(main_window, text="Available Ticket Information", font=("Arial", 14)).pack(pady=10)
-
-    Label(main_window, text="Departure Station:").pack()
-    search_dep_entry = Entry(main_window)
-    search_dep_entry.insert(0, "北京")
-    search_dep_entry.pack()
-    
-    Label(main_window, text="Arrival Station:").pack()
-    search_arr_entry = Entry(main_window)
-    search_arr_entry.insert(0, "上海")
-    search_arr_entry.pack()
-    
-    Label(main_window, text="Departure Date (YYYY-MM-DD, optional):").pack()
-    search_date_entry = Entry(main_window)
-    search_date_entry.pack()
-
-    def search_action():
-        dep_station = search_dep_entry.get()
-        arr_station = search_arr_entry.get()
-        date_str = search_date_entry.get()
-        
-        dep_date = validate_date_input(date_str) if date_str else None
-
-        results, error = TicketSalesService.search_available_tickets(
-            dep_station, arr_station, dep_date
-        )
-        
-        if error:
-            show_message("Information", error)
-        elif results:
-            display_table(
-                lambda: (results, None),
-                ["Train", "Date", "Departure", "Arrival", "Price", "Seats", "Train Type"]
-            )
-
-    Button(main_window, text="Search Tickets", command=search_action).pack(pady=5)
     Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
 
 # --- Main Application Logic ---
 def run_gui_app():
     global main_window
     main_window = tk.Tk()
-    main_window.title("Train Station Ticket Information System")
+    main_window.title("Train Station Management System")
     main_window.geometry("500x500")
 
     # Attempt to set up the database before anything else
