@@ -218,7 +218,7 @@ class TicketSalesService:
             return [], "Departure or arrival station not found."
 
         # 获取所有列车信息
-        train_query = "SELECT train_number, train_type, total_seats FROM Trains"
+        train_query = "SELECT * FROM Trains"
         all_trains = db.execute_query(train_query, fetch_all=True)
         
         if not all_trains:
@@ -231,15 +231,15 @@ class TicketSalesService:
             check_stop_query = """
             SELECT 
                 (SELECT stop_order FROM Stopovers 
-                WHERE train_number = %s AND station_name = %s LIMIT 1) AS dep_stop_order,
+                WHERE train_number = %s AND station_id = %s LIMIT 1) AS dep_stop_order,
                 (SELECT stop_order FROM Stopovers 
-                WHERE train_number = %s AND station_name = %s LIMIT 1) AS arr_stop_order
+                WHERE train_number = %s AND station_id = %s LIMIT 1) AS arr_stop_order
             """
             stop_params = (
                 train['train_number'], 
-                dep_station.get('station_name'),
+                dep_station.get('station_id'),
                 train['train_number'], 
-                arr_station.get('station_name')
+                arr_station.get('station_id')
             )
             stop_result = db.execute_query(check_stop_query, stop_params, fetch_one=True)
             
@@ -249,8 +249,11 @@ class TicketSalesService:
             if stop_result['dep_stop_order'] >= stop_result['arr_stop_order']:
                 continue
 
+            print(f"Train {train['train_number']} passes through {dep_station_name} and {arr_station_name}.")
+            
             # 获取该列车的停靠站总数
             stopover_count_query = "SELECT COUNT(*) AS count FROM Stopovers WHERE train_number = %s"
+
             stopover_count = db.execute_query(stopover_count_query, (train['train_number'],), fetch_one=True)['count']
 
             # 获取价格信息
@@ -261,8 +264,10 @@ class TicketSalesService:
             AND departure_station_id = %s
             AND arrival_station_id = %s
             """
-            price_params = (train['train_number'], dep_station.get('station_code'), arr_station.get('station_code'))
+            price_params = (train['train_number'], train['departure_station_id'], train['arrival_station_id'])
             prices = db.execute_query(price_query, price_params, fetch_all=True)
+
+            print(f"Prices for train {train['train_number']}: {prices}")
 
             # 获取指定日期的剩余座位数
             remaining_seats = None

@@ -134,29 +134,37 @@ def insert_stopovers_from_csv(cursor, train_numbers, station_ids):
     print(f"Inserted {inserted_count} stopovers")
 
 def insert_prices_from_config(cursor, train_numbers, station_ids):
-    """Insert prices based on seat type configuration"""
+    """
+    Insert prices based on seat type configuration
+    Ensures prices are only created for valid train routes with correct station IDs
+    """
     seat_types_data = read_csv_file('seat_types.csv')
     
     price_data = []
     
+    # First get all valid train routes
+    cursor.execute(
+        "SELECT train_number, departure_station_id, arrival_station_id, train_type FROM Trains"
+    )
+    valid_trains = {(train[0], train[1], train[2], train[3]) 
+                   for train in cursor.fetchall() 
+                   if train[0] in train_numbers}
+    
     for row in seat_types_data:
-        # Get all trains of this type
-        cursor.execute(
-            "SELECT `train_number`, `departure_station_id`, `arrival_station_id` FROM `Trains` WHERE `train_type` = %s",
-            (row['train_type'],)
-        )
-        trains = cursor.fetchall()
+        # Only process prices for trains of matching type
+        matching_trains = [train for train in valid_trains 
+                         if train[3] == row['train_type']]
         
-        for train_num, dep_id, arr_id in trains:
-            if train_num not in train_numbers:
-                continue
-                
+        for train_num, dep_id, arr_id, _ in matching_trains:
             # Add some random variation to base price
             base_price = float(row['base_price'])
             price = round(base_price * random.uniform(0.9, 1.1), 2)
             
             cursor.execute(
-                "INSERT INTO `Prices` (`train_number`, `departure_station_id`, `arrival_station_id`, `seat_type`, `price`) VALUES (%s, %s, %s, %s, %s)",
+                """INSERT INTO `Prices` 
+                   (`train_number`, `departure_station_id`, `arrival_station_id`, 
+                    `seat_type`, `price`) 
+                   VALUES (%s, %s, %s, %s, %s)""",
                 (train_num, dep_id, arr_id, row['seat_type'], price)
             )
             
