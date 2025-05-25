@@ -64,8 +64,8 @@ class TrainService:
         SELECT 
             st.station_name,
             st.station_code,
-            TIME_FORMAT(s.arrival_time, '%%H:%%i') AS arrival_time,
-            TIME_FORMAT(s.departure_time, '%%H:%%i') AS departure_time,
+            s.arrival_time AS arrival_time,
+            s.departure_time AS departure_time,
             s.stop_order
         FROM 
             Stopovers s
