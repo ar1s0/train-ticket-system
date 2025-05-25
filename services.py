@@ -231,15 +231,15 @@ class TicketSalesService:
             check_stop_query = """
             SELECT 
                 (SELECT stop_order FROM Stopovers 
-                WHERE train_number = %s AND station_id = %s LIMIT 1) AS dep_stop_order,
+                WHERE train_number = %s AND station_name = %s LIMIT 1) AS dep_stop_order,
                 (SELECT stop_order FROM Stopovers 
-                WHERE train_number = %s AND station_id = %s LIMIT 1) AS arr_stop_order
+                WHERE train_number = %s AND station_name = %s LIMIT 1) AS arr_stop_order
             """
             stop_params = (
                 train['train_number'], 
-                dep_station.get('station_id'),
+                dep_station.get('station_name'),
                 train['train_number'], 
-                arr_station.get('station_id')
+                arr_station.get('station_name')
             )
             stop_result = db.execute_query(check_stop_query, stop_params, fetch_one=True)
             
@@ -261,7 +261,7 @@ class TicketSalesService:
             AND departure_station_id = %s
             AND arrival_station_id = %s
             """
-            price_params = (train['train_number'], dep_station.get('station_id'), arr_station.get('station_id'))
+            price_params = (train['train_number'], dep_station.get('station_code'), arr_station.get('station_code'))
             prices = db.execute_query(price_query, price_params, fetch_all=True)
 
             # 获取指定日期的剩余座位数
