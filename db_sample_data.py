@@ -120,10 +120,14 @@ def insert_stopovers_from_csv(cursor, train_numbers, station_ids):
         station_id = station_ids.get(row['station_name'])
         if not station_id:
             continue
+        
+        # 处理时间字段，如果是"-"则设为None
+        arrival_time = None if row['arrival_time'] == "-" else row['arrival_time']
+        departure_time = None if row['departure_time'] == "-" else row['departure_time']
             
         cursor.execute(
             "INSERT INTO `Stopovers` (`train_number`, `station_id`, `arrival_time`, `departure_time`, `stop_order`) VALUES (%s, %s, %s, %s, %s)",
-            (row['train_number'], station_id, row['arrival_time'], row['departure_time'], int(row['stop_order']))
+            (row['train_number'], station_id, arrival_time, departure_time, int(row['stop_order']))
         )
         inserted_count += 1
     

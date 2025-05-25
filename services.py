@@ -52,13 +52,6 @@ class TrainService:
         if not train:
             return [], f"Train {train_number} not found."
 
-        # 获取起点和终点站信息
-        dep_station = Station.find_one({'station_id': train['departure_station_id']})
-        arr_station = Station.find_one({'station_id': train['arrival_station_id']})
-        
-        if not dep_station or not arr_station:
-            return [], "Station information missing for this train."
-
         # 查询所有停靠站（按顺序）
         stopovers_query = """
         SELECT 
@@ -80,21 +73,10 @@ class TrainService:
 
         # 构建完整路线
         route_data = []
-        
-        # 添加起点站
-        route_data.append([
-            1,
-            dep_station['station_name'],
-            dep_station['station_code'],
-            "-",  # 起点站无到达时间
-            stopovers[0]['departure_time'] if stopovers else "-",  # 取第一个停靠站的出发时间作为起点站出发时间
-            "Departure"
-        ])
 
-        # 添加中间站
-        for i, stop in enumerate(stopovers or []):
+        for i, stop in enumerate(stopovers):
             route_data.append([
-                i + 2,  # 顺序号
+                i+1,  # 顺序号
                 stop['station_name'],
                 stop['station_code'],
                 stop['arrival_time'],
@@ -102,20 +84,6 @@ class TrainService:
                 "Stopover"
             ])
 
-        # 添加终点站
-        route_data.append([
-            len(route_data) + 1,
-            arr_station['station_name'],
-            arr_station['station_code'],
-            stopovers[-1]['arrival_time'] if stopovers else "-",  # 取最后一个停靠站的到达时间作为终点站到达时间
-            "-",  # 终点站无出发时间
-            "Arrival"
-        ])
-
-        # 处理直达车特殊情况
-        if not stopovers:
-            return route_data, "This is a direct train with no stopovers."
-        
         return route_data, None
 
     @staticmethod
@@ -232,7 +200,7 @@ class TicketSalesService:
             return [], "Departure or arrival station not found."
 
         query = """
-        SELECT
+        SELECT DISTINCT
             DTS.train_number,
             DTS.departure_date,
             DTS.remaining_seats,
@@ -245,20 +213,38 @@ class TicketSalesService:
         JOIN
             Trains T ON DTS.train_number = T.train_number
         JOIN
-            Stations DS ON T.departure_station_id = DS.station_id
+            Prices P ON T.train_number = P.train_number
         JOIN
-            Stations AS_st ON T.arrival_station_id = AS_st.station_id
+            Stations DS ON P.departure_station_id = DS.station_id
         JOIN
-            Prices P ON T.train_number = P.train_number 
-                      AND P.departure_station_id = DS.station_id 
-                      AND P.arrival_station_id = AS_st.station_id
+            Stations AS_st ON P.arrival_station_id = AS_st.station_id
         WHERE
             DTS.remaining_seats > 0
             AND DTS.departure_date = %s
-            AND DS.station_name = %s
-            AND AS_st.station_name = %s
+            AND EXISTS (
+                SELECT 1 FROM Stopovers S1 
+                WHERE S1.train_number = T.train_number 
+                AND S1.station_id = %s
+            )
+            AND EXISTS (
+                SELECT 1 FROM Stopovers S2 
+                WHERE S2.train_number = T.train_number 
+                AND S2.station_id = %s
+                AND S2.stop_order > (
+                    SELECT stop_order FROM Stopovers 
+                    WHERE train_number = T.train_number 
+                    AND station_id = %s
+                    LIMIT 1
+                )
+            )
         """
-        params = (departure_date, dep_station_name, arr_station_name)
+        params = (
+            departure_date,
+            dep_station.station_id,
+            arr_station.station_id,
+            dep_station.station_id
+        )
+        
         results = db.execute_query(query, params, fetch_all=True)
 
         if not results:

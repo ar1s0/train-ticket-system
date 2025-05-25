@@ -154,7 +154,7 @@ def show_ticket_info_frame():
     search_arr_entry = Entry(main_window)
     search_arr_entry.pack()
     
-    Label(main_window, text="Departure Date (YYYY-MM-DD):").pack()
+    Label(main_window, text="Departure Date (YYYY-MM-DD, optional):").pack()
     search_date_entry = Entry(main_window)
     search_date_entry.pack()
 
@@ -162,19 +162,20 @@ def show_ticket_info_frame():
         dep_station = search_dep_entry.get()
         arr_station = search_arr_entry.get()
         date_str = search_date_entry.get()
-        dep_date = validate_date_input(date_str)
+        
+        dep_date = validate_date_input(date_str) if date_str else None
 
-        if dep_date:
-            results = TicketSalesService.search_available_tickets(dep_station, arr_station, dep_date)
-            if results:
-                display_table(
-                    lambda: results,
-                    ["Train", "Date", "Departure", "Arrival", "Seat Type", "Price", "Seats"]
-                )
-            else:
-                show_message("Search Results", "No tickets found for your criteria.")
-        else:
-            show_error("Invalid Date", "Please enter date in YYYY-MM-DD format.")
+        results, error = TicketSalesService.search_available_tickets(
+            dep_station, arr_station, dep_date
+        )
+        
+        if error:
+            show_message("Information", error)
+        elif results:
+            display_table(
+                lambda: (results, None),
+                ["Train", "Date", "Departure", "Arrival", "Seat Type", "Price", "Seats", "Train Type"]
+            )
 
     Button(main_window, text="Search Tickets", command=search_action).pack(pady=5)
     Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
