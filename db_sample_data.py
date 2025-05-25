@@ -135,14 +135,14 @@ def insert_stopovers_from_csv(cursor, train_numbers, station_ids):
 
 def insert_prices_from_config(cursor, train_numbers, station_ids):
     """
-    Insert prices based on seat type configuration
-    Ensures prices are only created for valid train routes with correct station IDs
+    Insert prices based on train type configuration
+    Ensures prices are only created for valid train routes
     """
     seat_types_data = read_csv_file('seat_types.csv')
     
     price_data = []
     
-    # First get all valid train routes
+    # Get all valid train routes
     cursor.execute(
         "SELECT train_number, departure_station_id, arrival_station_id, train_type FROM Trains"
     )
@@ -163,16 +163,15 @@ def insert_prices_from_config(cursor, train_numbers, station_ids):
             cursor.execute(
                 """INSERT INTO `Prices` 
                    (`train_number`, `departure_station_id`, `arrival_station_id`, 
-                    `seat_type`, `price`) 
-                   VALUES (%s, %s, %s, %s, %s)""",
-                (train_num, dep_id, arr_id, row['seat_type'], price)
+                    `price`) 
+                   VALUES (%s, %s, %s, %s)""",
+                (train_num, dep_id, arr_id, price)
             )
             
             price_data.append({
                 "train_number": train_num,
                 "departure_station_id": dep_id,
                 "arrival_station_id": arr_id,
-                "seat_type": row['seat_type'],
                 "price": price
             })
     
@@ -237,7 +236,6 @@ def insert_sample_orders(cursor, train_numbers, station_ids, salesperson_ids, pr
         train_num = price_info["train_number"]
         dep_id = price_info["departure_station_id"]
         arr_id = price_info["arrival_station_id"]
-        seat_type = price_info["seat_type"]
         price = price_info["price"]
         
         # Find a date with available seats

@@ -258,7 +258,7 @@ class TicketSalesService:
 
             # 获取价格信息
             price_query = """
-            SELECT seat_type, price
+            SELECT price
             FROM Prices
             WHERE train_number = %s
             AND departure_station_id = %s
@@ -268,6 +268,9 @@ class TicketSalesService:
             prices = db.execute_query(price_query, price_params, fetch_all=True)
 
             print(f"Prices for train {train['train_number']}: {prices}")
+            print(f"Stopover count: {stopover_count}")
+            print(f"Departure stop order: {stop_result['dep_stop_order']}, Arrival stop order: {stop_result['arr_stop_order']}")
+            price = float(prices[0]['price']) * (stop_result['arr_stop_order'] - stop_result['dep_stop_order']) / (stopover_count - 1)
 
             # 获取指定日期的剩余座位数
             remaining_seats = None
@@ -286,19 +289,15 @@ class TicketSalesService:
                     continue
 
             # 构建列车信息
-            train_info = {
-                'train_number': train['train_number'],
-                'train_type': train['train_type'],
-                'total_seats': train['total_seats'],
-                'departure_station': dep_station_name,
-                'arrival_station': arr_station_name,
-                'stopover_count': stopover_count,
-                'dep_stop_order': stop_result['dep_stop_order'],
-                'arr_stop_order': stop_result['arr_stop_order'],
-                'prices': prices,
-                'remaining_seats': remaining_seats,
-                'departure_date': departure_date
-            }
+            train_info = [
+                train['train_number'],
+                departure_date,
+                dep_station_name,
+                arr_station_name,
+                price,
+                remaining_seats,
+                train['train_type']
+            ]
             train_data.append(train_info)
 
         if not train_data:

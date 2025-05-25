@@ -177,7 +177,7 @@ def show_available_ticket_info_frame():
         elif results:
             display_table(
                 lambda: (results, None),
-                ["Train", "Date", "Departure", "Arrival", "Seat Type", "Price", "Seats", "Train Type"]
+                ["Train", "Date", "Departure", "Arrival", "Price", "Seats", "Train Type"]
             )
 
     Button(main_window, text="Search Tickets", command=search_action).pack(pady=5)

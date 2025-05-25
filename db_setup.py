@@ -119,8 +119,6 @@ def create_tables(cursor):
             `train_number` VARCHAR(10) NOT NULL,
             `departure_station_id` INT NOT NULL,
             `arrival_station_id` INT NOT NULL,
-            `seat_type` ENUM('Hard Seat', 'Soft Seat', 'Hard Sleeper', 'Soft Sleeper', 'Business Class', 'First Class', 'Second Class') NOT NULL,
-            `price` DECIMAL(10, 2) NOT NULL CHECK (`price` >= 0),
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`departure_station_id`) REFERENCES `Stations`(`station_id`),
             FOREIGN KEY (`arrival_station_id`) REFERENCES `Stations`(`station_id`),
@@ -362,7 +360,6 @@ def create_views(cursor):
             DTS.remaining_seats,
             DS.station_name AS departure_station_name,
             AS_st.station_name AS arrival_station_name,
-            P.seat_type,
             P.price
         FROM
             `DailyTrainStatus` DTS
@@ -373,7 +370,9 @@ def create_views(cursor):
         JOIN
             `Stations` AS_st ON T.arrival_station_id = AS_st.station_id
         JOIN
-            `Prices` P ON T.train_number = P.train_number AND P.departure_station_id = DS.station_id AND P.arrival_station_id = AS_st.station_id
+            `Prices` P ON T.train_number = P.train_number 
+                AND P.departure_station_id = DS.station_id 
+                AND P.arrival_station_id = AS_st.station_id
         WHERE
             DTS.remaining_seats > 0
         """,
