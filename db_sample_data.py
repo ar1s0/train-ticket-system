@@ -23,6 +23,8 @@ def insert_sample_data():
         train_numbers = insert_trains_from_csv(cursor, station_ids)
         insert_stopovers_from_csv(cursor, train_numbers, station_ids)
         price_data = insert_prices_from_config(cursor, train_numbers)
+        insert_customers_from_csv(cursor)
+        insert_salespersons_from_csv(cursor)  # Add this line
         
         conn.commit()
         print("Sample data inserted successfully!")
@@ -45,9 +47,9 @@ def clear_existing_data(cursor):
     cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
     
     tables = [
-        "Refunds", "SalesOrders", "DailyTrainStatus", 
+        "SalesOrders",
         "Salespersons", "Prices", "Stopovers", 
-        "Trains", "Stations"
+        "Trains", "Stations", "Customers"  # Added Customers table
     ]
     
     for table in tables:
@@ -121,7 +123,6 @@ def insert_stopovers_from_csv(cursor, train_seats, station_ids):
         if row['departure_time'] != "-":
             departure_time = datetime.strptime(row['departure_time'], '%Y-%m-%d %H:%M:%S')
 
-        print(f"Train: {row['train_number']}, Station: {row['station_name']}, Arrival: {arrival_time}, Departure: {departure_time}, Stop Order: {row['stop_order']}")
         cursor.execute(
             "INSERT INTO `Stopovers` (`train_number`, `station_id`, `arrival_time`, `departure_time`, `stop_order`, `seats`) VALUES (%s, %s, %s, %s, %s, %s)",
             (row['train_number'], station_id, arrival_time, departure_time, int(row['stop_order']), train_seats[row['train_number']])
@@ -174,6 +175,49 @@ def insert_prices_from_config(cursor, train_numbers):
     
     print(f"Inserted {len(price_data)} prices")
     return price_data
+
+def insert_customers_from_csv(cursor):
+    """Insert customers from CSV file"""
+    customers_data = read_csv_file('customer.csv')
+    
+    inserted_count = 0
+    for row in customers_data:
+        try:
+            cursor.execute(
+                "INSERT INTO `Customers` (`name`, `phone`, `id_card`) VALUES (%s, %s, %s)",
+                (row['name'], row['phone'], row['id_card'])
+            )
+            inserted_count += 1
+        except Error as e:
+            print(f"Error inserting customer {row['name']}: {e}")
+            continue
+    
+    print(f"Inserted {inserted_count} customers")
+    return inserted_count
+
+def insert_salespersons_from_csv(cursor):
+    """Insert salespersons from CSV file"""
+    salespersons_data = read_csv_file('salespersons.csv')
+    
+    inserted_count = 0
+    for row in salespersons_data:
+        try:
+            cursor.execute(
+                """INSERT INTO `Salespersons` 
+                   (`salesperson_id`, `salesperson_name`, `contact_number`, 
+                    `email`, `password`, `role`) 
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (row['salesperson_id'], row['salesperson_name'], 
+                 row['contact_number'], row['email'], 
+                 row['password'], row['role'])
+            )
+            inserted_count += 1
+        except Error as e:
+            print(f"Error inserting salesperson {row['salesperson_name']}: {e}")
+            continue
+    
+    print(f"Inserted {inserted_count} salespersons")
+    return inserted_count
 
 
 

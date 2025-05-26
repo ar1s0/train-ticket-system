@@ -121,6 +121,23 @@ def create_tables(cursor):
             FOREIGN KEY (`arrival_station_id`) REFERENCES `Stations`(`station_id`),
             UNIQUE (`train_number`, `departure_station_id`, `arrival_station_id`)
         );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS `Customers` (
+            `name` VARCHAR(50) NOT NULL,
+            `phone` VARCHAR(20) NOT NULL,
+            `id_card` VARCHAR(50) PRIMARY KEY
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS `Salespersons` (
+            `salesperson_id` VARCHAR(10) PRIMARY KEY,
+            `salesperson_name` VARCHAR(50) NOT NULL,
+            `contact_number` VARCHAR(20) NOT NULL,
+            `email` VARCHAR(100) NOT NULL UNIQUE,
+            `password` VARCHAR(255) NOT NULL,
+            `role` ENUM('Admin', 'Salesperson') NOT NULL
+        );
         """
     ]
     
@@ -180,7 +197,9 @@ def create_indexes(cursor):
         "CREATE INDEX idx_trains_arrival_station_id ON `Trains` (`arrival_station_id`)",
         "CREATE INDEX idx_stopovers_station_id ON `Stopovers` (`station_id`)",
         "CREATE INDEX idx_prices_departure_station_id ON `Prices` (`departure_station_id`)",
-        "CREATE INDEX idx_prices_arrival_station_id ON `Prices` (`arrival_station_id`)"
+        "CREATE INDEX idx_prices_arrival_station_id ON `Prices` (`arrival_station_id`)",
+        "CREATE INDEX idx_customers_id_card ON `Customers` (`id_card`)",
+        "CREATE INDEX idx_salespersons_id ON `Salespersons` (`salesperson_id`)"
     ]
     
     for stmt in index_statements:
