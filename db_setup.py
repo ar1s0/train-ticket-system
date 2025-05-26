@@ -52,6 +52,8 @@ def setup_database(drop_existing=True):
             create_views(cursor)
             # Indexes
             create_indexes(cursor)
+            # Triggers
+            create_triggers(cursor)
 
             insert_sample_data()
             conn.commit()
@@ -87,7 +89,7 @@ def create_tables(cursor):
         CREATE TABLE IF NOT EXISTS `Trains` (
             `train_number` VARCHAR(10) PRIMARY KEY,
             `train_type` VARCHAR(20) NOT NULL,
-            `total_seats` INT NOT NULL CHECK (`total_seats` > 0),
+            `total_seats` INT NOT NULL CHECK (`total_seats` >= 0),
             `departure_station_id` INT NOT NULL,
             `arrival_station_id` INT NOT NULL,
             FOREIGN KEY (`departure_station_id`) REFERENCES `Stations`(`station_id`),
@@ -296,6 +298,91 @@ def create_indexes(cursor):
             if err.errno != 1061:  # 1061 is MySQL error code for duplicate key name
                 print(f"Error creating index: {err}")
                 raise
+
+def create_triggers(cursor):
+    """Create all triggers"""
+    trigger_statements = [
+        """
+        DROP TRIGGER IF EXISTS after_order_success;
+        """,
+        """
+        CREATE TRIGGER after_order_success
+        AFTER UPDATE ON `SalesOrders`
+        FOR EACH ROW
+        BEGIN
+            DECLARE dep_order INT;
+            DECLARE arr_order INT;
+            
+            -- Get departure and arrival stop orders first
+            SELECT stop_order INTO dep_order
+            FROM Stopovers s2 
+            JOIN Stations st2 ON st2.station_id = s2.station_id 
+            WHERE s2.train_number = NEW.train_number 
+            AND st2.station_name = NEW.departure_station;
+            
+            SELECT stop_order INTO arr_order
+            FROM Stopovers s3 
+            JOIN Stations st3 ON st3.station_id = s3.station_id 
+            WHERE s3.train_number = NEW.train_number 
+            AND st3.station_name = NEW.arrival_station;
+            
+            IF NEW.status = 'Success' AND OLD.status = 'Ready' THEN
+                UPDATE Stopovers s
+                JOIN Stations st ON st.station_id = s.station_id
+                SET s.seats = s.seats - 1
+                WHERE s.train_number = NEW.train_number
+                AND s.seats > 0
+                AND s.stop_order >= dep_order
+                AND s.stop_order < arr_order;
+            END IF;
+        END;
+        """,
+        """
+        DROP TRIGGER IF EXISTS after_order_refund;
+        """,
+        """
+        CREATE TRIGGER after_order_refund
+        AFTER UPDATE ON `SalesOrders`
+        FOR EACH ROW
+        BEGIN
+            DECLARE dep_order INT;
+            DECLARE arr_order INT;
+            
+            -- Get departure and arrival stop orders first
+            SELECT stop_order INTO dep_order
+            FROM Stopovers s2 
+            JOIN Stations st2 ON st2.station_id = s2.station_id 
+            WHERE s2.train_number = NEW.train_number 
+            AND st2.station_name = NEW.departure_station;
+            
+            SELECT stop_order INTO arr_order
+            FROM Stopovers s3 
+            JOIN Stations st3 ON st3.station_id = s3.station_id 
+            WHERE s3.train_number = NEW.train_number 
+            AND st3.station_name = NEW.arrival_station;
+            
+            IF NEW.status = 'Refunded' AND OLD.status = 'RefundPending' THEN
+                UPDATE Stopovers s
+                JOIN Stations st ON st.station_id = s.station_id
+                SET s.seats = s.seats + 1
+                WHERE s.train_number = NEW.train_number
+                AND s.stop_order >= dep_order
+                AND s.stop_order < arr_order;
+            END IF;
+        END;
+        """
+    ]
+    
+    for stmt in trigger_statements:
+        try:
+            cursor.execute(stmt)
+            if "CREATE TRIGGER" in stmt:
+                print(f"Created trigger: {stmt.split('CREATE TRIGGER')[1].split('\n')[0].strip()}")
+            else:
+                print(f"Dropped trigger: {stmt.split('DROP TRIGGER IF EXISTS')[1].split(';')[0].strip()}")
+        except Error as err:
+            print(f"Error creating trigger: {err}")
+            raise
 
 if __name__ == "__main__":
     print("Setting up database...")

@@ -5,7 +5,7 @@ G79,High-Speed,600,北京,广州
 G80,High-Speed,600,广州,北京
 D1,Bullet,500,北京,沈阳
 D2,Bullet,500,沈阳,北京
-K157,Express,1200,北京,长沙
+K157,Express,0,北京,长沙
 K158,Express,1200,长沙,北京
 T1,Fast,800,北京,重庆
 T2,Fast,800,重庆,北京

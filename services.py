@@ -183,6 +183,7 @@ class PriceService:
         return price_data, None
 
 
+class TicketService:
     @staticmethod
     def search_available_tickets(dep_station_name, arr_station_name, departure_date=None):
         """
@@ -524,7 +525,9 @@ class OrderService:
         try:
             # 检查订单状态和信息
             check_query = """
-            SELECT status, operation_type, price FROM SalesOrders 
+            SELECT status, operation_type, price, 
+                   train_number, departure_station, arrival_station 
+            FROM SalesOrders 
             WHERE order_id = %s
             """
             order = db.execute_query(check_query, (order_id,), fetch_one=True)
@@ -538,6 +541,43 @@ class OrderService:
             # 确定新状态和操作类型
             original_status = order['status']
             operation_type = 'Approve' if approve else 'Reject'
+            
+            # 如果是批准新订单，需要检查余票
+            if approve and original_status == 'Ready':
+                # 检查所有经过站点是否有余票
+                check_seats_query = """
+                SELECT MIN(s.seats) as min_seats
+                FROM Stopovers s
+                JOIN Stations st1 ON st1.station_name = %s
+                JOIN Stations st2 ON st2.station_name = %s
+                WHERE s.train_number = %s
+                AND s.stop_order >= (
+                    SELECT stop_order 
+                    FROM Stopovers s2 
+                    JOIN Stations st3 ON st3.station_id = s2.station_id 
+                    WHERE st3.station_name = %s 
+                    AND s2.train_number = %s
+                )
+                AND s.stop_order < (
+                    SELECT stop_order 
+                    FROM Stopovers s3 
+                    JOIN Stations st4 ON st4.station_id = s3.station_id 
+                    WHERE st4.station_name = %s 
+                    AND s3.train_number = %s
+                )
+                """
+                
+                seats_result = db.execute_query(
+                    check_seats_query, 
+                    (order['departure_station'], order['arrival_station'],
+                     order['train_number'], order['departure_station'],
+                     order['train_number'], order['arrival_station'],
+                     order['train_number']),
+                    fetch_one=True
+                )
+                
+                if not seats_result or seats_result['min_seats'] <= 0:
+                    return False, "No available seats for this route"
             
             if original_status == 'Ready':
                 new_status = 'Success' if approve else 'Cancelled'

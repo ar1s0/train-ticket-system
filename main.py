@@ -3,7 +3,7 @@ from tkinter import messagebox, simpledialog, Toplevel, Label, Entry, Button
 from tkinter import ttk
 import datetime
 
-from services import TrainService, StationService, PriceService, OrderService, SalespersonService
+from services import TrainService, StationService, PriceService, TicketService, OrderService, SalespersonService
 from database import db 
 from db_setup import setup_database
 
@@ -439,7 +439,7 @@ def show_search_trains_frame():
             return
         
         display_table(
-            lambda: PriceService.search_available_tickets(
+            lambda: TicketService.search_available_tickets(
                 dep_station, arr_station, departure_date
             ),
             ["Train No", "From", "Departure Time", "To", "Arrival Time", 
