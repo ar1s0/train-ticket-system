@@ -160,7 +160,7 @@ class PriceService:
         参数:
             dep_station_name: 起点站名
             arr_station_name: 终点站名
-            departure_date: 可选，指定出发日期
+            departure_date: 可选，指定出发日期 (格式: YYYY-MM-DD)
         
         返回:
             包含符合条件的列车信息的列表，以及错误信息(如果有)
@@ -181,29 +181,78 @@ class PriceService:
         train_data = []
         
         for train in all_trains:
-            # 检查该列车是否经过起点站和终点站
+            # 修改查询以获取途经站点的座位信息
             check_stop_query = """
-            SELECT 
-                dep.stop_order as dep_stop_order,
-                dep.departure_time as departure_time,
-                dep.seats as dep_seats,
-                arr.stop_order as arr_stop_order,
-                arr.arrival_time as arrival_time
-            FROM 
-                (SELECT stop_order, departure_time, seats
-                 FROM Stopovers 
-                 WHERE train_number = %s AND station_id = %s) as dep,
-                (SELECT stop_order, arrival_time 
-                 FROM Stopovers 
-                 WHERE train_number = %s AND station_id = %s) as arr
-            """
-            stop_params = (
-                train['train_number'], 
-                dep_station.get('station_id'),
-                train['train_number'], 
-                arr_station.get('station_id')
+            WITH RECURSIVE route_stops AS (
+                SELECT 
+                    s1.stop_order, 
+                    s1.station_id,
+                    s1.seats,
+                    s1.departure_time
+                FROM Stopovers s1
+                WHERE s1.train_number = %s 
+                AND s1.station_id = %s
+                {date_condition}
+                
+                UNION ALL
+                
+                SELECT 
+                    s2.stop_order,
+                    s2.station_id,
+                    s2.seats,
+                    s2.departure_time
+                FROM Stopovers s2
+                JOIN route_stops rs ON s2.train_number = %s 
+                AND s2.stop_order = rs.stop_order + 1
+                WHERE s2.train_number = %s
             )
-            stop_result = db.execute_query(check_stop_query, stop_params, fetch_one=True)
+            SELECT 
+                MIN(rs.seats) as min_seats,
+                MIN(rs.stop_order) as dep_stop_order,
+                MAX(rs.stop_order) as arr_stop_order,
+                (SELECT departure_time 
+                 FROM Stopovers 
+                 WHERE train_number = %s 
+                 AND station_id = %s) as departure_time,
+                (SELECT arrival_time 
+                 FROM Stopovers 
+                 WHERE train_number = %s 
+                 AND station_id = %s) as arrival_time
+            FROM route_stops rs
+            WHERE rs.stop_order BETWEEN 
+                (SELECT stop_order FROM Stopovers WHERE train_number = %s AND station_id = %s) 
+                AND 
+                (SELECT stop_order FROM Stopovers WHERE train_number = %s AND station_id = %s)
+            """
+            
+            # 构建查询参数
+            stop_params = [
+                train['train_number'],
+                dep_station.get('station_id')
+            ]
+            
+            # 如果指定了出发日期，添加日期条件
+            date_condition = ""
+            if departure_date:
+                date_condition = "AND DATE(departure_time) = %s"
+                stop_params.extend([departure_date])
+                
+            # 添加其余参数
+            stop_params.extend([
+                train['train_number'],
+                train['train_number'],
+                train['train_number'],
+                dep_station.get('station_id'),
+                train['train_number'],
+                arr_station.get('station_id'),
+                train['train_number'],
+                dep_station.get('station_id'),
+                train['train_number'],
+                arr_station.get('station_id')
+            ])
+            
+            check_stop_query = check_stop_query.format(date_condition=date_condition)
+            stop_result = db.execute_query(check_stop_query, tuple(stop_params), fetch_one=True)
             
             # 如果列车不经过这两个站点或顺序不对，跳过
             if not stop_result or not stop_result['dep_stop_order'] or not stop_result['arr_stop_order']:
@@ -211,11 +260,8 @@ class PriceService:
             if stop_result['dep_stop_order'] >= stop_result['arr_stop_order']:
                 continue
 
-            print(f"Train {train['train_number']} passes through {dep_station_name} and {arr_station_name}.")
-            
             # 获取该列车的停靠站总数
             stopover_count_query = "SELECT COUNT(*) AS count FROM Stopovers WHERE train_number = %s"
-
             stopover_count = db.execute_query(stopover_count_query, (train['train_number'],), fetch_one=True)['count']
 
             # 获取价格信息
@@ -229,30 +275,10 @@ class PriceService:
             price_params = (train['train_number'], train['departure_station_id'], train['arrival_station_id'])
             prices = db.execute_query(price_query, price_params, fetch_all=True)
 
-            print(f"Prices for train {train['train_number']}: {prices}")
-            print(f"Stopover count: {stopover_count}")
-            print(f"Departure stop order: {stop_result['dep_stop_order']}, Arrival stop order: {stop_result['arr_stop_order']}")
             price = float(prices[0]['price']) * (stop_result['arr_stop_order'] - stop_result['dep_stop_order']) / (stopover_count - 1)
-            # 保留一位小数
             price = round(price, 1)
 
-            # 获取指定日期的剩余座位数
-            remaining_seats = None
-            if departure_date:
-                seats_query = """
-                SELECT remaining_seats
-                FROM DailyTrainStatus
-                WHERE train_number = %s
-                AND departure_date = %s
-                """
-                seats_result = db.execute_query(seats_query, (train['train_number'], departure_date), fetch_one=True)
-                remaining_seats = seats_result['remaining_seats'] if seats_result else 0
-
-                # 如果指定了日期但没有剩余座位，跳过
-                if remaining_seats == 0:
-                    continue
-
-            # 构建列车信息
+            # 构建列车信息时使用最小座位数
             train_info = [
                 train['train_number'],
                 dep_station_name,
@@ -260,7 +286,7 @@ class PriceService:
                 arr_station_name,
                 stop_result['arrival_time'],
                 price,
-                stop_result['dep_seats'],
+                stop_result['min_seats'],  # 使用计算得到的最小座位数
                 train['train_type']
             ]
             train_data.append(train_info)
