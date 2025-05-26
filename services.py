@@ -296,3 +296,55 @@ class PriceService:
 
         return train_data, None
 
+class OrderService:
+    @staticmethod
+    def create_order(train_number, train_type, departure_station, arrival_station, 
+                    price, customer_name, customer_id_card):
+        """创建订单"""
+        try:
+            # 验证客户信息
+            customer_query = """
+            SELECT * FROM Customers 
+            WHERE name = %s AND id_card = %s
+            """
+            customer = db.execute_query(
+                customer_query, 
+                (customer_name, customer_id_card),
+                fetch_one=True
+            )
+            
+            if not customer:
+                return False, "Customer information not found or incorrect."
+            
+            # 生成订单号 (年月日时分秒+4位随机数)
+            import datetime
+            import random
+            order_id = datetime.datetime.now().strftime('%Y%m%d%H%M%S') + \
+                      str(random.randint(1000, 9999))
+            
+            # 插入订单
+            order_query = """
+            INSERT INTO SalesOrders (
+                order_id, train_number, train_type,
+                departure_station, arrival_station,
+                price, customer_name, customer_phone, 
+                operation_type, status
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, 
+                'Booking', 'Success'
+            )
+            """
+            
+            # 执行订单插入
+            db.execute_query(
+                order_query,
+                (order_id, train_number, train_type,
+                 departure_station, arrival_station,
+                 price, customer_name, customer['phone'])
+            )
+            
+            return True, f"Order created successfully! Order ID: {order_id}"
+            
+        except Exception as e:
+            return False, f"Failed to create order: {str(e)}"
+

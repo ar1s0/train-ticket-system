@@ -138,6 +138,24 @@ def create_tables(cursor):
             `password` VARCHAR(255) NOT NULL,
             `role` ENUM('Admin', 'Salesperson') NOT NULL
         );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS `SalesOrders` (
+            `order_id` VARCHAR(20) PRIMARY KEY,
+            `train_number` VARCHAR(10) NOT NULL,
+            `train_type` VARCHAR(20) NOT NULL,
+            `departure_station` VARCHAR(20) NOT NULL,
+            `arrival_station` VARCHAR(20) NOT NULL,
+            `price` DECIMAL(10, 2) NOT NULL,
+            `customer_name` VARCHAR(20) NOT NULL,
+            `customer_phone` VARCHAR(20) NOT NULL,
+            `operation_type` ENUM('Booking', 'Refund') NOT NULL,
+            `operation_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `status` ENUM('Success', 'Cancelled', 'Refunded') NOT NULL DEFAULT 'Success',
+            FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
+            FOREIGN KEY (`departure_station`) REFERENCES `Stations`(`station_name`),
+            FOREIGN KEY (`arrival_station`) REFERENCES `Stations`(`station_name`)
+        );
         """
     ]
     
@@ -199,7 +217,9 @@ def create_indexes(cursor):
         "CREATE INDEX idx_prices_departure_station_id ON `Prices` (`departure_station_id`)",
         "CREATE INDEX idx_prices_arrival_station_id ON `Prices` (`arrival_station_id`)",
         "CREATE INDEX idx_customers_id_card ON `Customers` (`id_card`)",
-        "CREATE INDEX idx_salespersons_id ON `Salespersons` (`salesperson_id`)"
+        "CREATE INDEX idx_salespersons_id ON `Salespersons` (`salesperson_id`)",
+        "CREATE INDEX idx_orders_train_number ON `SalesOrders` (`train_number`)",
+        "CREATE INDEX idx_orders_operation_time ON `SalesOrders` (`operation_time`)"
     ]
     
     for stmt in index_statements:

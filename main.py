@@ -3,7 +3,7 @@ from tkinter import messagebox, simpledialog, Toplevel, Label, Entry, Button
 from tkinter import ttk
 import datetime
 
-from services import TrainService, StationService, PriceService
+from services import TrainService, StationService, PriceService, OrderService
 from database import db 
 from db_setup import setup_database
 
@@ -15,20 +15,126 @@ def clear_frame(frame):
     for widget in frame.winfo_children():
         widget.destroy()
 
+def create_modal_window(parent, title, geometry="400x300"):
+    """创建模态子窗口的通用函数"""
+    window = Toplevel(parent)
+    window.title(title)
+    window.geometry(geometry)
+    window.transient(parent)  # 设置为父窗口的子窗口
+    window.grab_set()  # 设置为模态窗口
+    return window
+
 def show_message(title, message):
-    """Helper to display information messages."""
-    messagebox.showinfo(title, message)
+    """信息消息窗口"""
+    message_window = create_modal_window(
+        main_window,
+        title,
+        "300x150"
+    )
+    Label(message_window, text=message, wraplength=250).pack(pady=20)
+    Button(message_window, text="OK", 
+           command=message_window.destroy).pack(pady=10)
 
 def show_error(title, message):
-    """Helper to display error messages."""
-    messagebox.showerror(title, message)
+    """错误消息窗口"""
+    error_window = create_modal_window(
+        main_window,
+        title,
+        "300x150"
+    )
+    Label(error_window, text=message, wraplength=250).pack(pady=20)
+    Button(error_window, text="OK", 
+           command=error_window.destroy).pack(pady=10)
 
-def display_table(get_data_func, columns):
-    # 创建新窗口来显示表格数据
-    data_window = Toplevel(main_window)
-    data_window.title("Data View")
-    data_window.geometry("800x400")
+def show_confirmation(title, message):
+    """确认对话框"""
+    confirm_window = create_modal_window(
+        main_window,
+        title,
+        "300x150"
+    )
+    result = [False]  # 使用列表存储结果，以便在内部函数中修改
+    
+    def on_yes():
+        result[0] = True
+        confirm_window.destroy()
+        
+    def on_no():
+        result[0] = False
+        confirm_window.destroy()
+    
+    Label(confirm_window, text=message, wraplength=250).pack(pady=20)
+    
+    button_frame = tk.Frame(confirm_window)
+    button_frame.pack(pady=10)
+    
+    Button(button_frame, text="Yes", command=on_yes).pack(side=tk.LEFT, padx=10)
+    Button(button_frame, text="No", command=on_no).pack(side=tk.LEFT, padx=10)
+    
+    confirm_window.wait_window()  # 等待窗口关闭
+    return result[0]
 
+def create_booking_window(train_info):
+    """创建订票窗口"""
+    booking_window = create_modal_window(
+        main_window,
+        "Book Ticket",
+        "400x300"
+    )
+    
+    # 显示选中的车次信息
+    Label(booking_window, text=f"Train: {train_info[0]}", font=("Arial", 12)).pack(pady=5)
+    Label(booking_window, text=f"From: {train_info[1]} -> To: {train_info[3]}", font=("Arial", 12)).pack(pady=5)
+    Label(booking_window, text=f"Price: ¥{train_info[5]}", font=("Arial", 12)).pack(pady=5)
+    
+    # 输入客户信息
+    Label(booking_window, text="Name:").pack(pady=5)
+    name_entry = Entry(booking_window)
+    name_entry.insert(0, "张三")  # 默认值
+    name_entry.pack(pady=5)
+    
+    Label(booking_window, text="ID Card:").pack(pady=5)
+    id_card_entry = Entry(booking_window)
+    id_card_entry.insert(0, "110101199001011234")  # 默认值
+    id_card_entry.pack(pady=5)
+    
+    def confirm_booking():
+        name = name_entry.get().strip()
+        id_card = id_card_entry.get().strip()
+        
+        if not name or not id_card:
+            show_error("Error", "Please fill in all fields")
+            return
+            
+        success, message = OrderService.create_order(
+            train_info[0],  # train_number
+            train_info[7],  # train_type
+            train_info[1],  # departure_station
+            train_info[3],  # arrival_station
+            train_info[5],  # price
+            name,
+            id_card
+        )
+        
+        if success:
+            show_message("Success", message)
+            booking_window.destroy()
+        else:
+            show_error("Error", message)
+    
+    Button(booking_window, text="Confirm Booking", 
+           command=confirm_booking).pack(pady=20)
+    Button(booking_window, text="Cancel", 
+           command=booking_window.destroy).pack(pady=5)
+
+def display_table(get_data_func, columns, enable_booking=False):
+    """显示数据表格窗口"""
+    data_window = create_modal_window(
+        main_window,
+        "Data View",
+        "800x400"
+    )
+    
     # 创建Treeview
     tree = ttk.Treeview(data_window)
     tree["columns"] = columns
@@ -116,6 +222,38 @@ def display_table(get_data_func, columns):
     Button(data_window, text="Save Changes", command=save_changes).grid(row=2, column=0, pady=5)
     Button(data_window, text="Close", command=data_window.destroy).grid(row=3, column=0, pady=5)
 
+    if enable_booking:
+        selected_train_info = None  # 添加变量存储选中的车次信息
+        
+        def on_select(event):
+            nonlocal selected_train_info
+            selected_items = tree.selection()
+            if not selected_items:
+                return
+            item = selected_items[0]
+            selected_train_info = tree.item(item)['values']
+        
+        def on_book():
+            if not selected_train_info:
+                messagebox.showwarning("Warning", "Please select a train first")
+                return
+            create_booking_window(selected_train_info)
+        
+        tree.bind('<<TreeviewSelect>>', on_select)
+        
+        # 替换原来的提示标签，添加订票按钮
+        booking_frame = tk.Frame(data_window)
+        booking_frame.grid(row=2, column=0, pady=5)
+        
+        Label(booking_frame, text="Select a train and click Book to proceed", 
+              font=("Arial", 10, "italic")).pack(side=tk.LEFT, padx=5)
+        Button(booking_frame, text="Book Selected Train", 
+               command=on_book).pack(side=tk.LEFT, padx=5)
+        
+        # 调整其他按钮的位置
+        Button(data_window, text="Close", 
+               command=data_window.destroy).grid(row=3, column=0, pady=5)
+
 # --- Menu Frames ---
 def show_search_trains_frame():
     clear_frame(main_window)
@@ -145,8 +283,12 @@ def show_search_trains_frame():
         departure_date = date_entry.get()
         
         display_table(
-            lambda: PriceService.search_available_tickets(dep_station, arr_station, departure_date),
-            ["Train No","From", "departure_time", "To",  "arrival_time", "Price", "Seats", "Type"]
+            lambda: PriceService.search_available_tickets(
+                dep_station, arr_station, departure_date
+            ),
+            ["Train No", "From", "Departure Time", "To", "Arrival Time", 
+             "Price", "Seats", "Type"],
+            enable_booking=True  # 启用订票功能
         )
 
     Button(main_window, text="Search", 
@@ -246,9 +388,8 @@ def run_gui_app():
     db.close()  # Ensure database connection is closed after mainloop exits
 
 def on_closing():
-    if messagebox.askokcancel("Quit", "Do you want to quit the application?"):
-        db.close()  # Close the database connection
-        main_window.destroy()
+    db.close()  # 关闭数据库连接
+    main_window.destroy()
 
 if __name__ == "__main__":
     run_gui_app()
