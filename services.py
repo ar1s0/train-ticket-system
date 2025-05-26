@@ -381,9 +381,6 @@ class OrderService:
                     order['operation_time'].strftime('%Y-%m-%d %H:%M:%S'),
                     order['status']
                 ])
-
-            for order in orders_data:
-                print(order)
                 
             return orders_data, None
             
@@ -450,4 +447,73 @@ class OrderService:
             
         except Exception as e:
             return False, f"Failed to request refund: {str(e)}"
+
+    @staticmethod
+    def get_pending_orders():
+        """获取待处理订单"""
+        try:
+            query = """
+                SELECT * FROM PendingOrdersView
+            """
+            orders = db.execute_query(query, fetch_all=True)
+
+            if not orders:
+                return [], "No pending orders found"
+
+            orders_data = []
+            for order in orders:
+                orders_data.append([
+                    order['order_id'],
+                    order['train_number'],
+                    order['train_type'],
+                    order['departure_station'],
+                    order['arrival_station'],
+                    f"${float(order['price']):.2f}",
+                    order['customer_name'],
+                    order['customer_phone'],
+                    order['operation_type'],
+                    order['operation_time'].strftime('%Y-%m-%d %H:%M:%S'),
+                    order['status']
+                ])
+                
+            return orders_data, None
+            
+        except Exception as e:
+            return [], f"Error querying orders: {str(e)}"
+
+    @staticmethod
+    def process_order(order_id, approve=True):
+        """处理订单（确认或拒绝）"""
+        try:
+            # 检查订单状态
+            check_query = """
+            SELECT status, operation_type FROM SalesOrders 
+            WHERE order_id = %s
+            """
+            order = db.execute_query(check_query, (order_id,), fetch_one=True)
+            
+            if not order:
+                return False, "Order not found"
+            
+            if order['status'] not in ('Ready', 'RefundPending'):
+                return False, "Order cannot be processed in current status"
+            
+            new_status = ''
+            if order['status'] == 'Ready':
+                new_status = 'Success' if approve else 'Cancelled'
+            else:  # RefundPending
+                new_status = 'Refunded' if approve else 'Success'
+            
+            # 更新订单状态
+            update_query = """
+            UPDATE SalesOrders 
+            SET status = %s
+            WHERE order_id = %s
+            """
+            db.execute_query(update_query, (new_status, order_id))
+            
+            return True, f"Order {new_status.lower()} successfully"
+            
+        except Exception as e:
+            return False, f"Failed to process order: {str(e)}"
 

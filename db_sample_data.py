@@ -250,7 +250,7 @@ def insert_sample_orders(cursor):
     orders_data = []
     base_time = datetime.now() - timedelta(days=30)  # 从30天前开始
     
-    for i in range(200):  # 生成50个订单
+    for i in range(10):  # 生成50个订单
         customer = random.choice(customers)
         train = random.choice(trains)
         
@@ -266,8 +266,8 @@ def insert_sample_orders(cursor):
         price = round(random.uniform(200, 1000), 2)
         
         # 随机生成订单状态
-        status = random.choice(['Ready', 'Success', 'Cancelled', 'Refunded'])
-        operation_type = 'Refund' if status == 'Refunded' else 'Booking'
+        status = random.choice(['Ready', 'Success', 'Cancelled', 'RefundPending', 'Refunded'])
+        operation_type = 'Refund' if status in ('Refunded', 'RefundPending') else 'Booking'
         
         orders_data.append((
             order_id,

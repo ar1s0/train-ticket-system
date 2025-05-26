@@ -139,7 +139,7 @@ def create_booking_window(train_info):
     Button(booking_window, text="Cancel", 
            command=booking_window.destroy).pack(pady=5)
 
-def display_table(get_data_func, columns, enable_booking=False, is_order_view=False):
+def display_table(get_data_func, columns, enable_booking=False, is_order_view=False, is_staff_view=False):
     """显示数据表格窗口"""
     data_window = create_modal_window(
         main_window,
@@ -326,6 +326,56 @@ def display_table(get_data_func, columns, enable_booking=False, is_order_view=Fa
         refund_btn = Button(action_frame, text="Request Refund", state='disabled', command=request_refund)
         refund_btn.pack(side=tk.LEFT, padx=5)
 
+    # 添加乘务员操作按钮
+    if is_staff_view:
+        def on_select(event):
+            selected_items = tree.selection()
+            if not selected_items:
+                return
+            item = selected_items[0]
+            values = tree.item(item)['values']
+            status = values[-1]
+            approve_btn['state'] = 'normal' if status in ('Ready', 'RefundPending') else 'disabled'
+            reject_btn['state'] = 'normal' if status in ('Ready', 'RefundPending') else 'disabled'
+
+        def process_order(approve=True):
+            selected_items = tree.selection()
+            if not selected_items:
+                messagebox.showwarning("Warning", "Please select an order first")
+                return
+            item = selected_items[0]
+            order_id = tree.item(item)['values'][0]
+            status = tree.item(item)['values'][-1]
+            
+            action = "approve" if approve else "reject"
+            if show_confirmation("Confirm Action", 
+                               f"Are you sure you want to {action} this order?"):
+                success, message = OrderService.process_order(order_id, approve)
+                if success:
+                    show_message("Success", message)
+                    # 刷新订单列表
+                    tree.delete(*tree.get_children())
+                    data, _ = get_data_func()
+                    if data:
+                        for row in data:
+                            tree.insert("", "end", values=[str(item) if item is not None else "-" for item in row])
+                else:
+                    show_error("Error", message)
+
+        tree.bind('<<TreeviewSelect>>', on_select)
+        
+        # 添加操作按钮框架
+        action_frame = tk.Frame(data_window)
+        action_frame.grid(row=2, column=0, pady=5)
+        
+        approve_btn = Button(action_frame, text="Approve", state='disabled', 
+                           command=lambda: process_order(True))
+        approve_btn.pack(side=tk.LEFT, padx=5)
+        
+        reject_btn = Button(action_frame, text="Reject", state='disabled', 
+                           command=lambda: process_order(False))
+        reject_btn.pack(side=tk.LEFT, padx=5)
+
     Button(data_window, text="Close", command=data_window.destroy).grid(row=3, column=0, pady=5)
 
 def center_window(window):
@@ -413,6 +463,10 @@ def show_main_menu_frame():
     Button(main_window, text="Query My Orders", 
            command=show_order_query_frame, width=30).pack(pady=5)
 
+    # Add staff operations button
+    Button(main_window, text="Staff Operations", 
+           command=show_staff_orders_frame, width=30).pack(pady=5)
+
     Button(main_window, text="Exit", command=main_window.quit, width=30).pack(pady=5)
 
 def show_train_route_frame():
@@ -486,6 +540,25 @@ def show_order_query_frame():
 
     Button(main_window, text="Back to Main Menu", 
            command=show_main_menu_frame).pack(pady=20)
+
+def show_staff_orders_frame():
+    clear_frame(main_window)
+    Label(main_window, text="Pending Orders", font=("Arial", 14)).pack(pady=10)
+    
+    def refresh_orders():
+        display_table(
+            OrderService.get_pending_orders,
+            ["Order ID", "Train No", "Type", "From", "To", 
+             "Price", "Customer", "Phone", "Operation", 
+             "Time", "Status"],
+            is_staff_view=True  # 新增参数
+        )
+    
+    Button(main_window, text="View Pending Orders", 
+           command=refresh_orders, width=30).pack(pady=5)
+    
+    Button(main_window, text="Back to Main Menu", 
+           command=show_main_menu_frame, width=30).pack(pady=20)
 
 # --- Main Application Logic ---
 def run_gui_app():

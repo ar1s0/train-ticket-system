@@ -197,6 +197,30 @@ def create_views(cursor):
             `Stations` SS ON S.station_id = SS.station_id
         ORDER BY
             T.train_number, S.stop_order
+        """,
+        """
+        DROP VIEW IF EXISTS `PendingOrdersView`
+        """,
+        """
+        CREATE VIEW `PendingOrdersView` AS
+        SELECT 
+            order_id,
+            train_number,
+            train_type,
+            departure_station,
+            arrival_station,
+            price,
+            customer_name,
+            customer_phone,
+            operation_type,
+            operation_time,
+            status
+        FROM 
+            `SalesOrders`
+        WHERE 
+            status IN ('Ready', 'RefundPending')
+        ORDER BY 
+            operation_time DESC
         """
     ]
     
