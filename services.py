@@ -331,7 +331,7 @@ class OrderService:
                 operation_type, status
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, 
-                'Booking', 'Success'
+                'Booking', 'Ready'
             )
             """
             

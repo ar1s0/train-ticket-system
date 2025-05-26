@@ -18,10 +18,19 @@ def clear_frame(frame):
 def create_modal_window(parent, title, geometry="400x300"):
     """创建模态子窗口的通用函数"""
     window = Toplevel(parent)
+    window.withdraw() # Hide the window initially
     window.title(title)
     window.geometry(geometry)
     window.transient(parent)  # 设置为父窗口的子窗口
     window.grab_set()  # 设置为模态窗口
+    
+    # Center the window
+    window.update_idletasks()
+    center_window(window)
+    
+    # Show the window
+    window.deiconify()
+    
     return window
 
 def show_message(title, message):
@@ -31,6 +40,9 @@ def show_message(title, message):
         title,
         "300x150"
     )
+
+    center_window(message_window)  # 居中显示窗口
+
     Label(message_window, text=message, wraplength=250).pack(pady=20)
     Button(message_window, text="OK", 
            command=message_window.destroy).pack(pady=10)
@@ -42,6 +54,9 @@ def show_error(title, message):
         title,
         "300x150"
     )
+
+    center_window(error_window)  # 居中显示窗口
+
     Label(error_window, text=message, wraplength=250).pack(pady=20)
     Button(error_window, text="OK", 
            command=error_window.destroy).pack(pady=10)
@@ -134,6 +149,8 @@ def display_table(get_data_func, columns, enable_booking=False):
         "Data View",
         "800x400"
     )
+
+    center_window(data_window)  # 居中显示窗口
     
     # 创建Treeview
     tree = ttk.Treeview(data_window)
@@ -214,12 +231,6 @@ def display_table(get_data_func, columns, enable_booking=False):
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
-    # 添加保存按钮
-    def save_changes():
-        # 这里可以添加保存到数据库的逻辑
-        messagebox.showinfo("Success", "Changes saved!")
-
-    Button(data_window, text="Save Changes", command=save_changes).grid(row=2, column=0, pady=5)
     Button(data_window, text="Close", command=data_window.destroy).grid(row=3, column=0, pady=5)
 
     if enable_booking:
@@ -253,6 +264,15 @@ def display_table(get_data_func, columns, enable_booking=False):
         # 调整其他按钮的位置
         Button(data_window, text="Close", 
                command=data_window.destroy).grid(row=3, column=0, pady=5)
+
+def center_window(window):
+    """将窗口居中显示"""
+    window.update_idletasks()  # 更新窗口大小信息
+    width = window.winfo_width()
+    height = window.winfo_height()
+    x = (window.winfo_screenwidth() // 2) - (width // 2)
+    y = (window.winfo_screenheight() // 2) - (height // 2)
+    window.geometry('{}x{}+{}+{}'.format(width, height, x, y))
 
 # --- Menu Frames ---
 def show_search_trains_frame():
@@ -366,9 +386,11 @@ def show_price_info_frame():
 def run_gui_app():
     global main_window
     main_window = tk.Tk()
+    main_window.withdraw() # Hide initially
+    
     main_window.title("Train Station Management System")
     main_window.geometry("500x500")
-
+    
     # Attempt to set up the database before anything else
     print("Initializing database setup...")
     if setup_database():
@@ -380,10 +402,12 @@ def run_gui_app():
 
     # Start with the main menu
     show_main_menu_frame()
-
-    # When the main window is closed, ensure DB connection is closed
+    
+    # Center and then show
+    center_window(main_window)
+    main_window.deiconify()
+    
     main_window.protocol("WM_DELETE_WINDOW", on_closing)
-
     main_window.mainloop()
     db.close()  # Ensure database connection is closed after mainloop exits
 
