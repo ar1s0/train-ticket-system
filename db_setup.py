@@ -498,7 +498,7 @@ def create_procedures(cursor):
                     Stations st ON s.station_id = st.station_id
                 WHERE 
                     s.train_number = p_train_number
-                    AND (DATE(s.departure_time) = p_departure_date OR DATE(s.arrival_time) = p_departure_date)
+                    AND ((DATE(s.departure_time) = p_departure_date OR DATE(s.arrival_time) = p_departure_date))
                 ORDER BY 
                     s.stop_order;
             ELSE
