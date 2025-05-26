@@ -1,0 +1,16 @@
+"filename", "language", "Python", "CSV", "comment", "blank", "total"
+"e:\Code\Python\train-ticket-system\customer.csv", "CSV", 0, 11, 0, 0, 11
+"e:\Code\Python\train-ticket-system\database.py", "Python", 45, 0, 2, 7, 54
+"e:\Code\Python\train-ticket-system\db_config.py", "Python", 7, 0, 1, 1, 9
+"e:\Code\Python\train-ticket-system\db_sample_data.py", "Python", 244, 0, 39, 60, 343
+"e:\Code\Python\train-ticket-system\db_setup.py", "Python", 138, 0, 283, 23, 444
+"e:\Code\Python\train-ticket-system\main.py", "Python", 521, 0, 67, 145, 733
+"e:\Code\Python\train-ticket-system\models.py", "Python", 102, 0, 5, 25, 132
+"e:\Code\Python\train-ticket-system\resources\customer.csv", "CSV", 0, 2, 0, 0, 2
+"e:\Code\Python\train-ticket-system\resources\salespersons.csv", "CSV", 0, 6, 0, 0, 6
+"e:\Code\Python\train-ticket-system\resources\seat_types.csv", "CSV", 0, 6, 0, 0, 6
+"e:\Code\Python\train-ticket-system\resources\stations.csv", "CSV", 0, 31, 0, 0, 31
+"e:\Code\Python\train-ticket-system\resources\stopovers.csv", "CSV", 0, 63, 0, 0, 63
+"e:\Code\Python\train-ticket-system\resources\trains.csv", "CSV", 0, 13, 0, 0, 13
+"e:\Code\Python\train-ticket-system\services.py", "Python", 220, 0, 489, 14, 723
+"Total", "-", 1277, 132, 886, 275, 2570

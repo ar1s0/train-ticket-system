@@ -1,5 +1,6 @@
 from database import db
 from models import Train, Station, Price
+from mysql.connector import Error
 
 class TrainService:
     @staticmethod
@@ -670,6 +671,7 @@ class SalespersonService:
             FROM Salespersons 
             WHERE salesperson_id = %s AND password = %s
             """
+
             result = db.execute_query(query, (salesperson_id, password), fetch_one=True)
             
             if result:
@@ -678,4 +680,38 @@ class SalespersonService:
             
         except Exception as e:
             return False, f"Error verifying credentials: {str(e)}"
+    
+    @staticmethod
+    def get_daily_sales_report(report_date, staff_id=None):
+        """获取指定日期的销售报表
+        
+        Args:
+            report_date (str): 报表日期，格式为YYYY-MM-DD
+            staff_id (str, optional): 指定乘务员ID，为空时显示所有乘务员
+            
+        Returns:
+            tuple: (data, error_message)
+        """
+        try:
+            if staff_id:
+                result = db.call_proc('sp_daily_staff_report', (report_date, staff_id))
+            else:
+                result = db.call_proc('sp_daily_sales_report', (report_date,))
 
+            if result:
+                data = [
+                    [
+                        str(row['salesperson_id']),
+                        str(row['salesperson_name']),
+                        str(row['total_orders']),
+                        f"${float(row['booking_revenue'] or 0):.2f}",
+                        f"${float(row['refund_amount'] or 0):.2f}"
+                    ]
+                    for row in result
+                ]
+                return data, None
+                
+            return [], "No data found"
+            
+        except Exception as e:
+            return None, str(e)

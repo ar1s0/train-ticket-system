@@ -482,15 +482,62 @@ def show_main_menu_frame():
     Button(main_window, text="View Price Information", 
            command=show_price_info_frame, width=30).pack(pady=5)
            
-    # Add new button for order query
     Button(main_window, text="Query My Orders", 
            command=show_order_query_frame, width=30).pack(pady=5)
 
-    # Add staff operations button
     Button(main_window, text="Staff Operations", 
            command=show_staff_orders_frame, width=30).pack(pady=5)
 
+    # 添加新按钮：查看乘务员工作情况
+    Button(main_window, text="View Staff Performance", 
+           command=lambda: show_staff_login_for_report(), width=30).pack(pady=5)
+
     Button(main_window, text="Exit", command=main_window.quit, width=30).pack(pady=5)
+
+# 添加新函数用于验证管理员身份
+def show_staff_login_for_report():
+    """显示管理员登录窗口(查看报表专用)"""
+    login_window = create_modal_window(
+        main_window,
+        "Manager Login",
+        "300x200"
+    )
+    
+    Label(login_window, text="Manager Login", font=("Arial", 14)).pack(pady=10)
+    
+    # 管理员ID输入
+    Label(login_window, text="Manager ID:").pack()
+    id_entry = Entry(login_window)
+    id_entry.insert(0, "SP001")  # 默认值
+    id_entry.pack(pady=5)
+    
+    # 密码输入
+    Label(login_window, text="Password:").pack()
+    password_entry = Entry(login_window, show="*")
+    password_entry.insert(0, "1")  # 默认值
+    password_entry.pack(pady=5)
+    
+    def verify_login():
+        staff_id = id_entry.get().strip()
+        password = password_entry.get().strip()
+        
+        if not staff_id or not password:
+            show_error("Error", "Please fill in all fields")
+            return
+            
+        success, result = SalespersonService.verify_credentials(staff_id, password)
+        
+        print(f"Login attempt: {staff_id}, success: {success}, result: {result}")
+        if success and result.get('role') == 'Manager':
+            login_window.destroy()
+            show_staff_performance_report()  # 直接显示报表
+        else:
+            show_error("Login Failed", "Only managers can access this feature")
+    
+    Button(login_window, text="Login", 
+           command=verify_login).pack(pady=10)
+    Button(login_window, text="Cancel", 
+           command=login_window.destroy).pack(pady=5)
 
 def show_train_route_frame():
     clear_frame(main_window)
@@ -643,6 +690,12 @@ def show_staff_dashboard(staff_info):
     clear_frame(main_window)
     Label(main_window, text=f"Welcome, {staff_info['salesperson_name']}", 
           font=("Arial", 14)).pack(pady=10)
+    
+    if staff_info.get('role') == 'manager':  # 只有管理员可以查看报表
+        Button(main_window, text="Staff Performance Report", 
+               command=show_staff_performance_report, 
+               width=30).pack(pady=5)
+    
     Label(main_window, text="Pending Orders", 
           font=("Arial", 12)).pack(pady=5)
     
@@ -661,6 +714,49 @@ def show_staff_dashboard(staff_info):
     
     Button(main_window, text="Back to Main Menu", 
            command=show_main_menu_frame, width=30).pack(pady=20)
+
+def show_staff_performance_report():
+    """显示业务员工作情况报表"""
+    report_window = create_modal_window(main_window, "Staff Performance Report", "300x250")
+    Label(report_window, text="Staff Performance Report", font=("Arial", 14)).pack(pady=10)
+    
+    # 乘务员ID输入
+    Label(report_window, text="Staff ID (optional):").pack()
+    staff_id_entry = Entry(report_window)
+    staff_id_entry.pack(pady=5)
+    
+    # 日期输入
+    Label(report_window, text="Date (YYYY-MM-DD):").pack()
+    date_entry = Entry(report_window)
+    date_entry.insert(0, datetime.datetime.now().strftime("%Y-%m-%d"))
+    date_entry.pack(pady=5)
+    
+    def view_report():
+        staff_id = staff_id_entry.get().strip()
+        report_date = date_entry.get().strip()
+        
+        if not validate_date(report_date):
+            show_error("Error", "Invalid date format")
+            return
+            
+        report_window.destroy()
+        display_table(
+            lambda: SalespersonService.get_daily_sales_report(report_date, staff_id),
+            ["Staff ID", "Staff Name", "Total Orders", 
+             "Booking Revenue", "Refund Amount"],
+            is_staff_view=False
+        )
+    
+    Button(report_window, text="View Report", 
+           command=view_report).pack(pady=10)
+           
+    # 添加帮助提示
+    help_text = "Leave Staff ID empty to view all staff performance"
+    Label(report_window, text=help_text, 
+          font=("Arial", 8, "italic")).pack(pady=5)
+          
+    Button(report_window, text="Cancel", 
+           command=report_window.destroy).pack(pady=5)
 
 # --- Main Application Logic ---
 def run_gui_app():

@@ -1,0 +1,41 @@
+Date : 2025-05-26 21:18:55
+Directory : e:\Code\Python\train-ticket-system
+Total : 14 files,  1409 codes, 886 comments, 275 blanks, all 2570 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Python   |          7 |      1,277 |        886 |        275 |      2,438 |
+| CSV      |          7 |        132 |          0 |          0 |        132 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                          | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                             |         14 |      1,409 |        886 |        275 |      2,570 |
+| . (Files)                                                     |          8 |      1,288 |        886 |        275 |      2,449 |
+| resources                                                     |          6 |        121 |          0 |          0 |        121 |
++---------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                      | language | code       | comment    | blank      | total      |
++---------------------------------------------------------------+----------+------------+------------+------------+------------+
+| e:\Code\Python\train-ticket-system\customer.csv               | CSV      |         11 |          0 |          0 |         11 |
+| e:\Code\Python\train-ticket-system\database.py                | Python   |         45 |          2 |          7 |         54 |
+| e:\Code\Python\train-ticket-system\db_config.py               | Python   |          7 |          1 |          1 |          9 |
+| e:\Code\Python\train-ticket-system\db_sample_data.py          | Python   |        244 |         39 |         60 |        343 |
+| e:\Code\Python\train-ticket-system\db_setup.py                | Python   |        138 |        283 |         23 |        444 |
+| e:\Code\Python\train-ticket-system\main.py                    | Python   |        521 |         67 |        145 |        733 |
+| e:\Code\Python\train-ticket-system\models.py                  | Python   |        102 |          5 |         25 |        132 |
+| e:\Code\Python\train-ticket-system\resources\customer.csv     | CSV      |          2 |          0 |          0 |          2 |
+| e:\Code\Python\train-ticket-system\resources\salespersons.csv | CSV      |          6 |          0 |          0 |          6 |
+| e:\Code\Python\train-ticket-system\resources\seat_types.csv   | CSV      |          6 |          0 |          0 |          6 |
+| e:\Code\Python\train-ticket-system\resources\stations.csv     | CSV      |         31 |          0 |          0 |         31 |
+| e:\Code\Python\train-ticket-system\resources\stopovers.csv    | CSV      |         63 |          0 |          0 |         63 |
+| e:\Code\Python\train-ticket-system\resources\trains.csv       | CSV      |         13 |          0 |          0 |         13 |
+| e:\Code\Python\train-ticket-system\services.py                | Python   |        220 |        489 |         14 |        723 |
+| Total                                                         |          |      1,409 |        886 |        275 |      2,570 |
++---------------------------------------------------------------+----------+------------+------------+------------+------------+

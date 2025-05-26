@@ -54,6 +54,8 @@ def setup_database(drop_existing=True):
             create_indexes(cursor)
             # Triggers
             create_triggers(cursor)
+            # Procedures
+            create_procedures(cursor)
 
             insert_sample_data()
             conn.commit()
@@ -138,7 +140,7 @@ def create_tables(cursor):
             `contact_number` VARCHAR(20) NOT NULL,
             `email` VARCHAR(100) NOT NULL UNIQUE,
             `password` VARCHAR(255) NOT NULL,
-            `role` ENUM('Admin', 'Salesperson') NOT NULL
+            `role` ENUM('Manager', 'Salesperson') NOT NULL
         );
         """,
         """
@@ -382,6 +384,92 @@ def create_triggers(cursor):
                 print(f"Dropped trigger: {stmt.split('DROP TRIGGER IF EXISTS')[1].split(';')[0].strip()}")
         except Error as err:
             print(f"Error creating trigger: {err}")
+            raise
+
+def create_procedures(cursor):
+    """Create all stored procedures"""
+    procedure_statements = [
+        """
+        DROP PROCEDURE IF EXISTS sp_daily_sales_report;
+        """,
+        """
+        CREATE PROCEDURE sp_daily_sales_report(IN report_date DATE)
+        BEGIN
+            SELECT 
+                s.salesperson_id,
+                s.salesperson_name,
+                COUNT(DISTINCT o.order_id) as total_orders,
+                SUM(CASE 
+                    WHEN o.operation_type = 'Booking' AND o.status = 'Success' 
+                    THEN op.price 
+                    ELSE 0 
+                END) as booking_revenue,
+                SUM(CASE 
+                    WHEN o.operation_type = 'Refund' AND o.status = 'Refunded' 
+                    THEN op.price 
+                    ELSE 0 
+                END) as refund_amount
+            FROM 
+                Salespersons s
+                LEFT JOIN OrderOperations op ON s.salesperson_id = op.salesperson_id
+                LEFT JOIN SalesOrders o ON op.order_id = o.order_id
+            WHERE 
+                DATE(op.operation_time) = report_date
+                AND op.operation_type = 'Approve'
+                AND o.status IN ('Success', 'Refunded')
+            GROUP BY 
+                s.salesperson_id, s.salesperson_name
+            ORDER BY 
+                (booking_revenue + refund_amount) DESC;
+        END;
+        """,
+        """
+        DROP PROCEDURE IF EXISTS sp_daily_staff_report;
+        """,
+        """
+        CREATE PROCEDURE sp_daily_staff_report(
+            IN report_date DATE,
+            IN staff_id VARCHAR(10)
+        )
+        BEGIN
+            SELECT 
+                s.salesperson_id,
+                s.salesperson_name,
+                COUNT(DISTINCT o.order_id) as total_orders,
+                SUM(CASE 
+                    WHEN o.operation_type = 'Booking' AND o.status = 'Success' 
+                    THEN op.price 
+                    ELSE 0 
+                END) as booking_revenue,
+                SUM(CASE 
+                    WHEN o.operation_type = 'Refund' AND o.status = 'Refunded' 
+                    THEN op.price 
+                    ELSE 0 
+                END) as refund_amount
+            FROM 
+                Salespersons s
+                LEFT JOIN OrderOperations op ON s.salesperson_id = op.salesperson_id
+                LEFT JOIN SalesOrders o ON op.order_id = o.order_id
+            WHERE 
+                DATE(op.operation_time) = report_date
+                AND op.operation_type = 'Approve'
+                AND o.status IN ('Success', 'Refunded')
+                AND s.salesperson_id = staff_id
+            GROUP BY 
+                s.salesperson_id, s.salesperson_name;
+        END;
+        """
+    ]
+    
+    for stmt in procedure_statements:
+        try:
+            cursor.execute(stmt)
+            if "CREATE PROCEDURE" in stmt:
+                print(f"Created procedure: {stmt.split('CREATE PROCEDURE')[1].split('(')[0].strip()}")
+            else:
+                print(f"Dropped procedure: {stmt.split('DROP PROCEDURE IF EXISTS')[1].split(';')[0].strip()}")
+        except Error as err:
+            print(f"Error creating procedure: {err}")
             raise
 
 if __name__ == "__main__":
