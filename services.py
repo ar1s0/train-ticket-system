@@ -184,10 +184,18 @@ class PriceService:
             # 检查该列车是否经过起点站和终点站
             check_stop_query = """
             SELECT 
-                (SELECT stop_order FROM Stopovers 
-                WHERE train_number = %s AND station_id = %s LIMIT 1) AS dep_stop_order,
-                (SELECT stop_order FROM Stopovers 
-                WHERE train_number = %s AND station_id = %s LIMIT 1) AS arr_stop_order
+                dep.stop_order as dep_stop_order,
+                dep.departure_time as departure_time,
+                dep.seats as dep_seats,
+                arr.stop_order as arr_stop_order,
+                arr.arrival_time as arrival_time
+            FROM 
+                (SELECT stop_order, departure_time, seats
+                 FROM Stopovers 
+                 WHERE train_number = %s AND station_id = %s) as dep,
+                (SELECT stop_order, arrival_time 
+                 FROM Stopovers 
+                 WHERE train_number = %s AND station_id = %s) as arr
             """
             stop_params = (
                 train['train_number'], 
@@ -247,11 +255,12 @@ class PriceService:
             # 构建列车信息
             train_info = [
                 train['train_number'],
-                departure_date,
                 dep_station_name,
+                stop_result['departure_time'],
                 arr_station_name,
+                stop_result['arrival_time'],
                 price,
-                remaining_seats,
+                stop_result['dep_seats'],
                 train['train_type']
             ]
             train_data.append(train_info)

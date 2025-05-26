@@ -86,7 +86,7 @@ def insert_trains_from_csv(cursor, station_ids):
     """Insert trains from CSV file and return train numbers"""
     trains_data = read_csv_file('trains.csv')
     
-    train_numbers = []
+    train_seats = {}
     for row in trains_data:
         dep_id = station_ids[row['departure_station']]
         arr_id = station_ids[row['arrival_station']]
@@ -95,18 +95,18 @@ def insert_trains_from_csv(cursor, station_ids):
             "INSERT INTO `Trains` (`train_number`, `train_type`, `total_seats`, `departure_station_id`, `arrival_station_id`) VALUES (%s, %s, %s, %s, %s)",
             (row['train_number'], row['train_type'], int(row['total_seats']), dep_id, arr_id)
         )
-        train_numbers.append(row['train_number'])
+        train_seats[row['train_number']] = row['total_seats']
     
     print(f"Inserted {len(trains_data)} trains")
-    return train_numbers
+    return train_seats
 
-def insert_stopovers_from_csv(cursor, train_numbers, station_ids):
+def insert_stopovers_from_csv(cursor, train_seats, station_ids):
     """Insert stopovers from CSV file"""
     stopovers_data = read_csv_file('stopovers.csv')
     
     inserted_count = 0
     for row in stopovers_data:
-        if row['train_number'] not in train_numbers:
+        if row['train_number'] not in train_seats:
             continue
             
         station_id = station_ids.get(row['station_name'])
@@ -121,10 +121,10 @@ def insert_stopovers_from_csv(cursor, train_numbers, station_ids):
         if row['departure_time'] != "-":
             departure_time = datetime.strptime(row['departure_time'], '%Y-%m-%d %H:%M:%S')
 
-        print(f"Train: {row['train_number']}, Station: {row['station_name']}, Arrival: {arrival_time}, Departure: {departure_time}")
+        print(f"Train: {row['train_number']}, Station: {row['station_name']}, Arrival: {arrival_time}, Departure: {departure_time}, Stop Order: {row['stop_order']}")
         cursor.execute(
-            "INSERT INTO `Stopovers` (`train_number`, `station_id`, `arrival_time`, `departure_time`, `stop_order`) VALUES (%s, %s, %s, %s, %s)",
-            (row['train_number'], station_id, arrival_time, departure_time, int(row['stop_order']))
+            "INSERT INTO `Stopovers` (`train_number`, `station_id`, `arrival_time`, `departure_time`, `stop_order`, `seats`) VALUES (%s, %s, %s, %s, %s, %s)",
+            (row['train_number'], station_id, arrival_time, departure_time, int(row['stop_order']), train_seats[row['train_number']])
         )
         inserted_count += 1
     

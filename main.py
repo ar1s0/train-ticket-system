@@ -77,11 +77,13 @@ def show_search_trains_frame():
     # 出发站
     Label(main_window, text="Departure Station:").pack()
     dep_station_entry = Entry(main_window)
+    dep_station_entry.insert(0, "郑州")
     dep_station_entry.pack(pady=5)
 
     # 到达站
     Label(main_window, text="Arrival Station:").pack()
     arr_station_entry = Entry(main_window)
+    arr_station_entry.insert(0, "武汉")
     arr_station_entry.pack(pady=5)
 
     # 出发日期
@@ -97,7 +99,7 @@ def show_search_trains_frame():
         
         display_table(
             lambda: PriceService.search_available_tickets(dep_station, arr_station, departure_date),
-            ["Train No", "Date", "From", "To", "Price", "Seats", "Type"]
+            ["Train No","From", "departure_time", "To",  "arrival_time", "Price", "Seats", "Type"]
         )
 
     Button(main_window, text="Search", 

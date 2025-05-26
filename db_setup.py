@@ -102,6 +102,7 @@ def create_tables(cursor):
             `arrival_time` DATETIME NULL,
             `departure_time` DATETIME NULL,
             `stop_order` INT NOT NULL CHECK (`stop_order` > 0),
+            `seats` INT NOT NULL CHECK (`seats` >= 0),
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`station_id`) REFERENCES `Stations`(`station_id`),
             UNIQUE (`train_number`, `station_id`),
@@ -141,11 +142,12 @@ def create_views(cursor):
         CREATE VIEW `TrainSchedulesView` AS
         SELECT
             T.train_number,
-            T.train_type,
             DS.station_name AS departure_station,
             AS_st.station_name AS arrival_station,
-            S.stop_order,
+            T.train_type,
             SS.station_name AS stopover_station,
+            S.stop_order,
+            S.seats,
             S.arrival_time,
             S.departure_time
         FROM
