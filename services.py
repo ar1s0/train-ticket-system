@@ -347,4 +347,46 @@ class OrderService:
             
         except Exception as e:
             return False, f"Failed to create order: {str(e)}"
+    
+    @staticmethod
+    def get_orders_by_passenger(name, phone):
+        """根据乘客信息查询订单"""
+        try:
+            print(f"Querying orders for passenger {name} {phone}")
+            query = """
+                SELECT *
+                FROM SalesOrders 
+                WHERE customer_name = %s 
+                AND customer_phone = %s
+                ORDER BY operation_time DESC
+            """
+            
+            orders = db.execute_query(query, (name, phone), fetch_all=True)
+
+            if not orders:
+                return [], "No orders found for this passenger"
+
+            orders_data = []
+            for order in orders:
+                orders_data.append([
+                    order['order_id'],
+                    order['train_number'],
+                    order['train_type'],
+                    order['departure_station'],
+                    order['arrival_station'],
+                    f"${float(order['price']):.2f}",
+                    order['customer_name'],
+                    order['customer_phone'],
+                    order['operation_type'],
+                    order['operation_time'].strftime('%Y-%m-%d %H:%M:%S'),
+                    order['status']
+                ])
+
+            for order in orders_data:
+                print(order)
+                
+            return orders_data, None
+            
+        except Exception as e:
+            return [], f"Error querying orders: {str(e)}"
 

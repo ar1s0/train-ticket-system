@@ -340,6 +340,10 @@ def show_main_menu_frame():
 
     Button(main_window, text="View Price Information", 
            command=show_price_info_frame, width=30).pack(pady=5)
+           
+    # Add new button for order query
+    Button(main_window, text="Query My Orders", 
+           command=show_order_query_frame, width=30).pack(pady=5)
 
     Button(main_window, text="Exit", command=main_window.quit, width=30).pack(pady=5)
 
@@ -376,6 +380,43 @@ def show_price_info_frame():
            )).pack(pady=5)
 
     Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
+
+def show_order_query_frame():
+    clear_frame(main_window)
+    Label(main_window, text="Query Orders", font=("Arial", 14)).pack(pady=10)
+
+    # Name input
+    Label(main_window, text="Name:").pack()
+    name_entry = Entry(main_window)
+    name_entry.insert(0, "张三")  # Default value
+    name_entry.pack(pady=5)
+
+    # ID Card input
+    Label(main_window, text="Phone:").pack()
+    phone_entry = Entry(main_window)
+    phone_entry.insert(0, "13800138000")  # Default value
+    phone_entry.pack(pady=5)
+    
+    def query_orders():
+        name = name_entry.get().strip()
+        id_card = phone_entry.get().strip()
+        
+        if not name or not id_card:
+            show_error("Error", "Please fill in all fields")
+            return
+            
+        display_table(
+            lambda: OrderService.get_orders_by_passenger(name, id_card),
+            ["order_id", "train_number", "train_type", "From", "To", 
+             "Price", "customer_name", "customer_phone", "operation_type", 
+             "operation_time", "status"]
+        )
+
+    Button(main_window, text="Query", 
+           command=query_orders).pack(pady=10)
+
+    Button(main_window, text="Back to Main Menu", 
+           command=show_main_menu_frame).pack(pady=20)
 
 # --- Main Application Logic ---
 def run_gui_app():

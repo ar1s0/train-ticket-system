@@ -25,6 +25,7 @@ def insert_sample_data():
         price_data = insert_prices_from_config(cursor, train_numbers)
         insert_customers_from_csv(cursor)
         insert_salespersons_from_csv(cursor)  # Add this line
+        insert_sample_orders(cursor)
         
         conn.commit()
         print("Sample data inserted successfully!")
@@ -219,7 +220,120 @@ def insert_salespersons_from_csv(cursor):
     print(f"Inserted {inserted_count} salespersons")
     return inserted_count
 
+def insert_sample_orders(cursor):
+    """Insert sample orders into the SalesOrders table"""
+    print("Inserting sample orders...")
+    
+    # 获取所有客户信息
+    cursor.execute("SELECT name, phone FROM Customers")
+    customers = cursor.fetchall()
+    
+    # 获取所有列车信息
+    cursor.execute("""
+        SELECT t.train_number, t.train_type, 
+               dep.station_name as departure_station, 
+               arr.station_name as arrival_station
+        FROM Trains t
+        JOIN Stations dep ON t.departure_station_id = dep.station_id
+        JOIN Stations arr ON t.arrival_station_id = arr.station_id
+    """)
+    trains = cursor.fetchall()
+    
+    if not customers or not trains:
+        print("No customers or trains found for generating orders")
+        return 0
+    
+    # 生成示例订单
+    from datetime import datetime, timedelta
+    import random
+    
+    orders_data = []
+    base_time = datetime.now() - timedelta(days=30)  # 从30天前开始
+    
+    for i in range(200):  # 生成50个订单
+        customer = random.choice(customers)
+        train = random.choice(trains)
+        
+        # 生成订单号 (年月日时分秒+4位随机数)
+        order_time = base_time + timedelta(
+            days=random.randint(0, 29),
+            hours=random.randint(0, 23),
+            minutes=random.randint(0, 59)
+        )
+        order_id = order_time.strftime('%Y%m%d%H%M%S') + str(random.randint(1000, 9999))
+        
+        # 随机生成价格 (200-1000之间)
+        price = round(random.uniform(200, 1000), 2)
+        
+        # 随机生成订单状态
+        status = random.choice(['Ready', 'Success', 'Cancelled', 'Refunded'])
+        operation_type = 'Refund' if status == 'Refunded' else 'Booking'
+        
+        orders_data.append((
+            order_id,
+            train[0],  # train_number
+            train[1],  # train_type
+            train[2],  # departure_station
+            train[3],  # arrival_station
+            price,
+            customer[0],  # customer_name
+            customer[1],  # customer_phone
+            operation_type,
+            order_time,
+            status
+        ))
+    
+    # 批量插入订单
+    try:
+        cursor.executemany("""
+            INSERT INTO SalesOrders (
+                order_id, train_number, train_type,
+                departure_station, arrival_station,
+                price, customer_name, customer_phone,
+                operation_type, operation_time, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, orders_data)
+        
+        print(f"Successfully inserted {len(orders_data)} sample orders")
+        return len(orders_data)
+        
+    except Error as e:
+        print(f"Error inserting sample orders: {e}")
+        return 0
 
+# 修改 insert_sample_data 函数，在末尾添加对新函数的调用
+def insert_sample_data():
+    """Inserts sample data into the database"""
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor(buffered=True)
+        
+        # Clear existing data (optional)
+        clear_existing_data(cursor)
+        
+        # Insert sample data in correct dependency order
+        station_ids = insert_stations_from_csv(cursor)
+        train_numbers = insert_trains_from_csv(cursor, station_ids)
+        insert_stopovers_from_csv(cursor, train_numbers, station_ids)
+        price_data = insert_prices_from_config(cursor, train_numbers)
+        insert_customers_from_csv(cursor)
+        insert_salespersons_from_csv(cursor)  # Add this line
+        insert_sample_orders(cursor)
+        
+        conn.commit()
+        print("Sample data inserted successfully!")
+        return True
+        
+    except Error as e:
+        conn.rollback()
+        print(f"Error inserting sample data: {e}")
+        return False
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
 if __name__ == "__main__":
     print("=== Inserting sample data ===")
