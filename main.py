@@ -527,7 +527,6 @@ def show_staff_login_for_report():
             
         success, result = SalespersonService.verify_credentials(staff_id, password)
         
-        print(f"Login attempt: {staff_id}, success: {success}, result: {result}")
         if success and result.get('role') == 'Manager':
             login_window.destroy()
             show_staff_performance_report()  # 直接显示报表
@@ -573,7 +572,7 @@ def show_train_route_frame():
                 departure_date if departure_date else None
             ),
             ["Train", "Station", "Code", "Arrival", "Departure", 
-             "Type", "Order", "Available Seats"]
+             "Type", "Order", "Sold_tickets"]
         )
     
     Button(main_window, text="Query Route", 

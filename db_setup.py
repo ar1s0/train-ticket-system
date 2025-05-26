@@ -458,6 +458,73 @@ def create_procedures(cursor):
             GROUP BY 
                 s.salesperson_id, s.salesperson_name;
         END;
+        """,
+        """
+        DROP PROCEDURE IF EXISTS sp_get_train_route;
+        """,
+        """
+        CREATE PROCEDURE sp_get_train_route(
+            IN p_train_number VARCHAR(10),
+            IN p_departure_date DATE
+        )
+        BEGIN
+            DECLARE v_departure_station_id INT;
+            DECLARE v_arrival_station_id INT;
+            DECLARE v_total_seats INT;
+            
+            -- Get train's departure and arrival stations and total seats
+            SELECT departure_station_id, arrival_station_id, total_seats
+            INTO v_departure_station_id, v_arrival_station_id, v_total_seats
+            FROM Trains 
+            WHERE train_number = p_train_number;
+            
+            IF p_departure_date IS NOT NULL THEN
+                SELECT 
+                    s.train_number,
+                    st.station_name,
+                    st.station_code,
+                    s.arrival_time,
+                    s.departure_time,
+                    CASE 
+                        WHEN st.station_id = v_departure_station_id THEN 'Departure'
+                        WHEN st.station_id = v_arrival_station_id THEN 'Arrival'
+                        ELSE 'Stopover'
+                    END as stop_type,
+                    s.stop_order,
+                    (v_total_seats - s.seats) as sold_tickets
+                FROM 
+                    Stopovers s
+                JOIN 
+                    Stations st ON s.station_id = st.station_id
+                WHERE 
+                    s.train_number = p_train_number
+                    AND (DATE(s.departure_time) = p_departure_date OR DATE(s.arrival_time) = p_departure_date)
+                ORDER BY 
+                    s.stop_order;
+            ELSE
+                SELECT 
+                    s.train_number,
+                    st.station_name,
+                    st.station_code,
+                    s.arrival_time,
+                    s.departure_time,
+                    CASE 
+                        WHEN st.station_id = v_departure_station_id THEN 'Departure'
+                        WHEN st.station_id = v_arrival_station_id THEN 'Arrival'
+                        ELSE 'Stopover'
+                    END as stop_type,
+                    s.stop_order,
+                    (v_total_seats - s.seats) as sold_tickets
+                FROM 
+                    Stopovers s
+                JOIN 
+                    Stations st ON s.station_id = st.station_id
+                WHERE 
+                    s.train_number = p_train_number
+                ORDER BY 
+                    s.stop_order;
+            END IF;
+        END;
         """
     ]
     

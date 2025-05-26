@@ -23,77 +23,46 @@ class TrainService:
 
     @staticmethod
     def get_train_route(train_number, departure_date=None):
-        """获取列车路线信息"""
-        train = Train.find_one({'train_number': train_number})
-        if not train:
-            return [], f"Train {train_number} not found."
-
-        # 构建查询条件
-        date_condition = ""
-        query_params = [train_number]
-        if departure_date:
-            date_condition = "AND DATE(s.departure_time) = %s"
-            query_params.append(departure_date)
-
-        stopovers_query = f"""
-        SELECT 
-            st.station_name,
-            st.station_code,
-            s.arrival_time,
-            s.departure_time,
-            s.stop_order,
-            s.seats,
-            CASE 
-                WHEN st.station_id = %s THEN 'Departure'
-                WHEN st.station_id = %s THEN 'Arrival'
-                ELSE 'Stopover'
-            END as stop_type
-        FROM 
-            Stopovers s
-        JOIN 
-            Stations st ON s.station_id = st.station_id
-        WHERE 
-            s.train_number = %s
-            {date_condition}
-        ORDER BY 
-            s.stop_order
-        """
+        """获取列车路线信息
         
-        # 添加起点站和终点站到查询参数
-        query_params = [
-            train['departure_station_id'],  # 起点站
-            train['arrival_station_id'],    # 终点站
-            train_number
-        ]
-        if departure_date:
-            query_params.append(departure_date)
-
-        stopovers = db.execute_query(stopovers_query, tuple(query_params), fetch_all=True)
-
-        if not stopovers:
-            error_msg = "No route information found"
-            if departure_date:
-                error_msg += f" for date {departure_date}"
-            return [], error_msg
-
-        route_data = []
-        for stop in stopovers:
-            # 格式化时间
-            arrival_time = stop['arrival_time'].strftime('%Y-%m-%d %H:%M:%S') if stop['arrival_time'] else '-'
-            departure_time = stop['departure_time'].strftime('%Y-%m-%d %H:%M:%S') if stop['departure_time'] else '-'
+        Args:
+            train_number (str): 列车号
+            departure_date (str, optional): 发车日期，格式YYYY-MM-DD
             
-            route_data.append([
-                train_number,
-                stop['station_name'],
-                stop['station_code'] or '-',
-                arrival_time,
-                departure_time,
-                stop['stop_type'],
-                stop['stop_order'],
-                stop['seats']
-            ])
+        Returns:
+            tuple: (route_data, error_message)
+        """
+        try:
+            # 调用存储过程
+            result = db.call_proc('sp_get_train_route', (train_number, departure_date))
+            
+            if not result:
+                error_msg = "No route information found"
+                if departure_date:
+                    error_msg += f" for date {departure_date}"
+                return [], error_msg
 
-        return route_data, None
+            route_data = []
+            for stop in result:
+                # 格式化时间
+                arrival_time = stop['arrival_time'].strftime('%Y-%m-%d %H:%M:%S') if stop['arrival_time'] else '-'
+                departure_time = stop['departure_time'].strftime('%Y-%m-%d %H:%M:%S') if stop['departure_time'] else '-'
+                
+                route_data.append([
+                    stop['train_number'],
+                    stop['station_name'],
+                    stop['station_code'] or '-',
+                    arrival_time,
+                    departure_time,
+                    stop['stop_type'],
+                    stop['stop_order'],
+                    stop['sold_tickets']
+                ])
+
+            return route_data, None
+            
+        except Exception as e:
+            return [], f"Error getting train route: {str(e)}"
 
     @staticmethod
     def list_all_trains():
