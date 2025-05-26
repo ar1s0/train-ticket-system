@@ -41,8 +41,6 @@ def show_message(title, message):
         "300x150"
     )
 
-    center_window(message_window)  # 居中显示窗口
-
     Label(message_window, text=message, wraplength=250).pack(pady=20)
     Button(message_window, text="OK", 
            command=message_window.destroy).pack(pady=10)
@@ -55,8 +53,6 @@ def show_error(title, message):
         "300x150"
     )
 
-    center_window(error_window)  # 居中显示窗口
-
     Label(error_window, text=message, wraplength=250).pack(pady=20)
     Button(error_window, text="OK", 
            command=error_window.destroy).pack(pady=10)
@@ -68,6 +64,7 @@ def show_confirmation(title, message):
         title,
         "300x150"
     )
+
     result = [False]  # 使用列表存储结果，以便在内部函数中修改
     
     def on_yes():
@@ -149,8 +146,6 @@ def display_table(get_data_func, columns, enable_booking=False):
         "Data View",
         "800x400"
     )
-
-    center_window(data_window)  # 居中显示窗口
     
     # 创建Treeview
     tree = ttk.Treeview(data_window)
