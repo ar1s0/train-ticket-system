@@ -21,44 +21,75 @@ class TrainService:
         return False, "Failed to add train."
 
     @staticmethod
-    def get_train_route(train_number):
+    def get_train_route(train_number, departure_date=None):
+        """获取列车路线信息"""
         train = Train.find_one({'train_number': train_number})
         if not train:
             return [], f"Train {train_number} not found."
 
-        stopovers_query = """
+        # 构建查询条件
+        date_condition = ""
+        query_params = [train_number]
+        if departure_date:
+            date_condition = "AND DATE(s.departure_time) = %s"
+            query_params.append(departure_date)
+
+        stopovers_query = f"""
         SELECT 
             st.station_name,
             st.station_code,
             s.arrival_time,
             s.departure_time,
-            s.stop_order
+            s.stop_order,
+            s.seats,
+            CASE 
+                WHEN st.station_id = %s THEN 'Departure'
+                WHEN st.station_id = %s THEN 'Arrival'
+                ELSE 'Stopover'
+            END as stop_type
         FROM 
             Stopovers s
         JOIN 
             Stations st ON s.station_id = st.station_id
         WHERE 
             s.train_number = %s
+            {date_condition}
         ORDER BY 
             s.stop_order
         """
-        stopovers = db.execute_query(stopovers_query, (train_number,), fetch_all=True)
+        
+        # 添加起点站和终点站到查询参数
+        query_params = [
+            train['departure_station_id'],  # 起点站
+            train['arrival_station_id'],    # 终点站
+            train_number
+        ]
+        if departure_date:
+            query_params.append(departure_date)
+
+        stopovers = db.execute_query(stopovers_query, tuple(query_params), fetch_all=True)
+
+        if not stopovers:
+            error_msg = "No route information found"
+            if departure_date:
+                error_msg += f" for date {departure_date}"
+            return [], error_msg
 
         route_data = []
-        for i, stop in enumerate(stopovers):
-            stop_type = "Stopover" 
-            if i == 0: 
-                stop_type = "Departure"
-            elif i == len(stopovers) - 1:
-                stop_type = "Arrival"
-
+        for stop in stopovers:
+            # 格式化时间
+            arrival_time = stop['arrival_time'].strftime('%Y-%m-%d %H:%M:%S') if stop['arrival_time'] else '-'
+            departure_time = stop['departure_time'].strftime('%Y-%m-%d %H:%M:%S') if stop['departure_time'] else '-'
+            
             route_data.append([
-                i+1,
+                train_number,
                 stop['station_name'],
-                stop['station_code'],
-                stop['arrival_time'],
-                stop['departure_time'],
-                stop_type
+                stop['station_code'] or '-',
+                arrival_time,
+                departure_time,
+                stop['stop_type'],
+                stop['stop_order'],
+                stop['seats']
             ])
 
         return route_data, None
@@ -510,7 +541,7 @@ class OrderService:
             
             if original_status == 'Ready':
                 new_status = 'Success' if approve else 'Cancelled'
-            else:  # RefundPending
+            else:
                 new_status = 'Refunded' if approve else 'Success'
             
             # 生成操作备注

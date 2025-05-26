@@ -387,6 +387,24 @@ def center_window(window):
     y = (window.winfo_screenheight() // 2) - (height // 2)
     window.geometry('{}x{}+{}+{}'.format(width, height, x, y))
 
+def validate_date(date_str):
+    """验证日期格式是否正确
+    
+    Args:
+        date_str (str): 日期字符串，格式应为 YYYY-MM-DD
+        
+    Returns:
+        bool: 日期格式是否有效
+    """
+    if not date_str:  # 允许为空
+        return True
+        
+    try:
+        datetime.datetime.strptime(date_str, '%Y-%m-%d')
+        return True
+    except ValueError:
+        return False
+
 # --- Menu Frames ---
 def show_search_trains_frame():
     clear_frame(main_window)
@@ -414,6 +432,11 @@ def show_search_trains_frame():
         dep_station = dep_station_entry.get()
         arr_station = arr_station_entry.get()
         departure_date = date_entry.get()
+
+                # 验证日期格式
+        if not validate_date(departure_date):
+            show_error("Error", "Invalid date format. Please use YYYY-MM-DD format")
+            return
         
         display_table(
             lambda: PriceService.search_available_tickets(
@@ -471,20 +494,46 @@ def show_main_menu_frame():
 
 def show_train_route_frame():
     clear_frame(main_window)
-    Label(main_window, text="Train Route Information", font=("Arial", 14)).pack(pady=10)
-
-    Label(main_window, text="Train Number:").pack()
-    train_num_entry = Entry(main_window)
-    train_num_entry.insert(0, "G1")
-    train_num_entry.pack()
+    Label(main_window, text="Train Route Query", font=("Arial", 14)).pack(pady=10)
     
-    Button(main_window, text="View Route", 
-           command=lambda: display_table(
-               lambda: TrainService.get_train_route(train_num_entry.get()),
-               ["Order", "Station Name", "Code", "Arrival Time", "Departure Time", "Type"]
-           )).pack(pady=5)
-
-    Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
+    # 列车号输入
+    Label(main_window, text="Train Number:").pack()
+    train_number_entry = Entry(main_window)
+    train_number_entry.insert(0, "G1")
+    train_number_entry.pack(pady=5)
+    
+    # 日期输入（可选）
+    Label(main_window, text="Date (YYYY-MM-DD, optional):").pack()
+    date_entry = Entry(main_window)
+    date_entry.pack(pady=5)
+    
+    def query_route():
+        train_number = train_number_entry.get().strip()
+        departure_date = date_entry.get().strip()
+        
+        if not train_number:
+            show_error("Error", "Please enter train number")
+            return
+        
+        # 验证日期格式
+        if not validate_date(departure_date):
+            show_error("Error", "Invalid date format. Please use YYYY-MM-DD format")
+            return
+            
+        display_table(
+            lambda: TrainService.get_train_route(
+                train_number, 
+                departure_date if departure_date else None
+            ),
+            ["Train", "Station", "Code", "Arrival", "Departure", 
+             "Type", "Order", "Available Seats"]
+        )
+    
+    Button(main_window, text="Query Route", 
+           command=query_route).pack(pady=10)
+    
+    Button(main_window, text="Back to Main Menu", 
+           command=show_main_menu_frame).pack(pady=20)
 
 def show_price_info_frame():
     clear_frame(main_window)
