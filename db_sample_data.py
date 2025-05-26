@@ -130,7 +130,7 @@ def insert_stopovers_from_csv(cursor, train_seats, station_ids):
     
     print(f"Inserted {inserted_count} stopovers")
 
-def insert_prices_from_config(cursor, train_numbers, station_ids):
+def insert_prices_from_config(cursor, train_numbers):
     """
     Insert prices based on train type configuration
     Ensures prices are only created for valid train routes
