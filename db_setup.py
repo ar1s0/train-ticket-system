@@ -156,6 +156,21 @@ def create_tables(cursor):
             FOREIGN KEY (`departure_station`) REFERENCES `Stations`(`station_name`),
             FOREIGN KEY (`arrival_station`) REFERENCES `Stations`(`station_name`)
         );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS `OrderOperations` (
+            `operation_id` INT PRIMARY KEY AUTO_INCREMENT,
+            `order_id` VARCHAR(20) NOT NULL,
+            `salesperson_id` VARCHAR(10) NOT NULL,
+            `operation_type` ENUM('Approve', 'Reject') NOT NULL,
+            `original_status` ENUM('Ready', 'RefundPending') NOT NULL,
+            `new_status` ENUM('Success', 'Cancelled', 'Refunded') NOT NULL,
+            `price` INT NOT NULL,
+            `operation_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `remarks` VARCHAR(255),
+            FOREIGN KEY (`order_id`) REFERENCES `SalesOrders`(`order_id`),
+            FOREIGN KEY (`salesperson_id`) REFERENCES `Salespersons`(`salesperson_id`)
+        );
         """
     ]
     
@@ -221,6 +236,32 @@ def create_views(cursor):
             status IN ('Ready', 'RefundPending')
         ORDER BY 
             operation_time DESC
+        """,
+        """
+        DROP VIEW IF EXISTS `OrderOperationsView`
+        """,
+        """
+        CREATE VIEW `OrderOperationsView` AS
+        SELECT 
+            op.operation_id,
+            op.order_id,
+            so.train_number,
+            so.customer_name,
+            sp.salesperson_name,
+            op.operation_type,
+            op.original_status,
+            op.new_status,
+            op.price,
+            op.operation_time,
+            op.remarks
+        FROM 
+            `OrderOperations` op
+        JOIN 
+            `SalesOrders` so ON op.order_id = so.order_id
+        JOIN 
+            `Salespersons` sp ON op.salesperson_id = sp.salesperson_id
+        ORDER BY 
+            op.operation_time DESC
         """
     ]
     
@@ -243,7 +284,8 @@ def create_indexes(cursor):
         "CREATE INDEX idx_customers_id_card ON `Customers` (`id_card`)",
         "CREATE INDEX idx_salespersons_id ON `Salespersons` (`salesperson_id`)",
         "CREATE INDEX idx_orders_train_number ON `SalesOrders` (`train_number`)",
-        "CREATE INDEX idx_orders_operation_time ON `SalesOrders` (`operation_time`)"
+        "CREATE INDEX idx_orders_operation_time ON `SalesOrders` (`operation_time`)",
+        "CREATE INDEX idx_order_operations_time ON `OrderOperations` (`operation_time`)"
     ]
     
     for stmt in index_statements:

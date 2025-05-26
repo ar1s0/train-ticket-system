@@ -3,7 +3,7 @@ from tkinter import messagebox, simpledialog, Toplevel, Label, Entry, Button
 from tkinter import ttk
 import datetime
 
-from services import TrainService, StationService, PriceService, OrderService
+from services import TrainService, StationService, PriceService, OrderService, SalespersonService
 from database import db 
 from db_setup import setup_database
 
@@ -139,7 +139,7 @@ def create_booking_window(train_info):
     Button(booking_window, text="Cancel", 
            command=booking_window.destroy).pack(pady=5)
 
-def display_table(get_data_func, columns, enable_booking=False, is_order_view=False, is_staff_view=False):
+def display_table(get_data_func, columns, enable_booking=False, is_order_view=False, is_staff_view=False, staff_info=None):
     """显示数据表格窗口"""
     data_window = create_modal_window(
         main_window,
@@ -350,7 +350,7 @@ def display_table(get_data_func, columns, enable_booking=False, is_order_view=Fa
             action = "approve" if approve else "reject"
             if show_confirmation("Confirm Action", 
                                f"Are you sure you want to {action} this order?"):
-                success, message = OrderService.process_order(order_id, approve)
+                success, message = OrderService.process_order(order_id, approve, staff_info['salesperson_id'])
                 if success:
                     show_message("Success", message)
                     # 刷新订单列表
@@ -542,8 +542,60 @@ def show_order_query_frame():
            command=show_main_menu_frame).pack(pady=20)
 
 def show_staff_orders_frame():
+    """显示乘务员操作界面"""
+    # 直接显示登录窗口
+    show_staff_login()
+
+def show_staff_login():
+    """显示乘务员登录窗口"""
+    login_window = create_modal_window(
+        main_window,
+        "Staff Login",
+        "300x200"
+    )
+    
+    Label(login_window, text="Staff Login", font=("Arial", 14)).pack(pady=10)
+    
+    # 乘务员ID输入
+    Label(login_window, text="Staff ID:").pack()
+    id_entry = Entry(login_window)
+    id_entry.insert(0, "SP001")  # 默认值
+    id_entry.pack(pady=5)
+    
+    # 密码输入
+    Label(login_window, text="Password:").pack()
+    password_entry = Entry(login_window, show="*")
+    password_entry.insert(0, "1")  # 默认值
+    password_entry.pack(pady=5)
+    
+    def verify_login():
+        staff_id = id_entry.get().strip()
+        password = password_entry.get().strip()
+        
+        if not staff_id or not password:
+            show_error("Error", "Please fill in all fields")
+            return
+            
+        success, result = SalespersonService.verify_credentials(staff_id, password)
+        
+        if success:
+            login_window.destroy()
+            show_staff_dashboard(result)  # 传入验证成功的乘务员信息
+        else:
+            show_error("Login Failed", result)
+    
+    Button(login_window, text="Login", 
+           command=verify_login).pack(pady=10)
+    Button(login_window, text="Cancel", 
+           command=login_window.destroy).pack(pady=5)
+
+def show_staff_dashboard(staff_info):
+    """显示乘务员操作界面"""
     clear_frame(main_window)
-    Label(main_window, text="Pending Orders", font=("Arial", 14)).pack(pady=10)
+    Label(main_window, text=f"Welcome, {staff_info['salesperson_name']}", 
+          font=("Arial", 14)).pack(pady=10)
+    Label(main_window, text="Pending Orders", 
+          font=("Arial", 12)).pack(pady=5)
     
     def refresh_orders():
         display_table(
@@ -551,7 +603,8 @@ def show_staff_orders_frame():
             ["Order ID", "Train No", "Type", "From", "To", 
              "Price", "Customer", "Phone", "Operation", 
              "Time", "Status"],
-            is_staff_view=True  # 新增参数
+            is_staff_view=True,
+            staff_info=staff_info  # 传入乘务员信息
         )
     
     Button(main_window, text="View Pending Orders", 

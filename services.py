@@ -482,12 +482,18 @@ class OrderService:
             return [], f"Error querying orders: {str(e)}"
 
     @staticmethod
-    def process_order(order_id, approve=True):
-        """处理订单（确认或拒绝）"""
+    def process_order(order_id, approve=True, salesperson_id=None):
+        """处理订单（确认或拒绝）
+        
+        Args:
+            order_id (str): 订单ID
+            approve (bool): True为批准，False为拒绝
+            salesperson_id (str): 处理订单的乘务员ID
+        """
         try:
-            # 检查订单状态
+            # 检查订单状态和信息
             check_query = """
-            SELECT status, operation_type FROM SalesOrders 
+            SELECT status, operation_type, price FROM SalesOrders 
             WHERE order_id = %s
             """
             order = db.execute_query(check_query, (order_id,), fetch_one=True)
@@ -498,11 +504,21 @@ class OrderService:
             if order['status'] not in ('Ready', 'RefundPending'):
                 return False, "Order cannot be processed in current status"
             
-            new_status = ''
-            if order['status'] == 'Ready':
+            # 确定新状态和操作类型
+            original_status = order['status']
+            operation_type = 'Approve' if approve else 'Reject'
+            
+            if original_status == 'Ready':
                 new_status = 'Success' if approve else 'Cancelled'
             else:  # RefundPending
                 new_status = 'Refunded' if approve else 'Success'
+            
+            # 生成操作备注
+            remarks = None
+            if original_status == 'Ready':
+                remarks = f"Order {'approved' if approve else 'rejected'} by salesperson"
+            else:
+                remarks = f"Refund request {'approved' if approve else 'rejected'} by salesperson"
             
             # 更新订单状态
             update_query = """
@@ -512,8 +528,83 @@ class OrderService:
             """
             db.execute_query(update_query, (new_status, order_id))
             
+            # 记录操作
+            success = OrderService.record_operation(
+                order_id=order_id,
+                salesperson_id=salesperson_id,
+                operation_type=operation_type,
+                original_status=original_status,
+                new_status=new_status,
+                price=float(order['price']),
+                remarks=remarks
+            )
+            
+            if not success:
+                return False, "Operation recorded but failed to log the operation"
+            
             return True, f"Order {new_status.lower()} successfully"
             
         except Exception as e:
             return False, f"Failed to process order: {str(e)}"
+    
+    @staticmethod
+    def record_operation(order_id, salesperson_id, operation_type, 
+                    original_status, new_status, price, remarks=None):
+        """记录订单操作历史
+        
+        Args:
+            order_id (str): 订单ID
+            salesperson_id (str): 操作人员ID
+            operation_type (str): 操作类型 ('Approve', 'Reject', 'Process_Refund')
+            original_status (str): 原始状态
+            new_status (str): 新状态
+            price (decimal): 操作涉及的金额
+            remarks (str, optional): 备注说明
+
+        Returns:
+            bool: 操作是否成功
+        """
+        try:
+            query = """
+                INSERT INTO OrderOperations (
+                    order_id,
+                    salesperson_id,
+                    operation_type,
+                    original_status,
+                    new_status,
+                    price,
+                    operation_time,
+                    remarks
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s
+                )
+            """
+            db.execute_query(
+                query,
+                (order_id, salesperson_id, operation_type, 
+                 original_status, new_status, price, remarks)
+            )
+            return True
+        except Exception as e:
+            print(f"Error recording operation: {e}")
+            return False
+
+class SalespersonService:
+    @staticmethod
+    def verify_credentials(salesperson_id, password):
+        """验证乘务员凭据"""
+        try:
+            query = """
+            SELECT salesperson_id, salesperson_name, role
+            FROM Salespersons 
+            WHERE salesperson_id = %s AND password = %s
+            """
+            result = db.execute_query(query, (salesperson_id, password), fetch_one=True)
+            
+            if result:
+                return True, result
+            return False, "Invalid credentials"
+            
+        except Exception as e:
+            return False, f"Error verifying credentials: {str(e)}"
 
