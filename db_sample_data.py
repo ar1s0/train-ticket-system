@@ -22,7 +22,7 @@ def insert_sample_data():
         station_ids = insert_stations_from_csv(cursor)
         train_numbers = insert_trains_from_csv(cursor, station_ids)
         insert_stopovers_from_csv(cursor, train_numbers, station_ids)
-        price_data = insert_prices_from_config(cursor, train_numbers, station_ids)
+        price_data = insert_prices_from_config(cursor, train_numbers)
         
         conn.commit()
         print("Sample data inserted successfully!")

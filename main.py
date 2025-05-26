@@ -53,6 +53,48 @@ def display_table(get_data_func, columns):
     data_window.grid_rowconfigure(0, weight=1)
     data_window.grid_columnconfigure(0, weight=1)
 
+    # 添加双击编辑功能
+    def on_double_click(event):
+        item = tree.selection()[0]
+        column = tree.identify_column(event.x)
+        col_num = int(column.replace('#', '')) - 1
+        
+        # 获取当前值
+        current_value = tree.item(item)['values'][col_num]
+        
+        # 创建Entry控件
+        entry = Entry(tree)
+        entry.insert(0, current_value)
+        
+        # 获取单元格的bbox
+        bbox = tree.bbox(item, column)
+        if not bbox:  # 如果单元格不可见
+            return
+        
+        # 配置Entry的大小和位置
+        entry.place(x=bbox[0], y=bbox[1],
+                   width=bbox[2], height=bbox[3])
+        
+        # 设置焦点
+        entry.focus_set()
+        
+        def on_enter(event):
+            new_value = entry.get()
+            values = list(tree.item(item)['values'])
+            values[col_num] = new_value
+            tree.item(item, values=values)
+            entry.destroy()
+        
+        def on_escape(event):
+            entry.destroy()
+        
+        entry.bind('<Return>', on_enter)
+        entry.bind('<Escape>', on_escape)
+        # 当Entry失去焦点时也保存修改
+        entry.bind('<FocusOut>', on_enter)
+
+    tree.bind('<Double-1>', on_double_click)
+
     try:
         data, error = get_data_func()
         
@@ -66,8 +108,13 @@ def display_table(get_data_func, columns):
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
-    # 添加关闭按钮
-    Button(data_window, text="Close", command=data_window.destroy).grid(row=2, column=0, pady=10)
+    # 添加保存按钮
+    def save_changes():
+        # 这里可以添加保存到数据库的逻辑
+        messagebox.showinfo("Success", "Changes saved!")
+
+    Button(data_window, text="Save Changes", command=save_changes).grid(row=2, column=0, pady=5)
+    Button(data_window, text="Close", command=data_window.destroy).grid(row=3, column=0, pady=5)
 
 # --- Menu Frames ---
 def show_search_trains_frame():
