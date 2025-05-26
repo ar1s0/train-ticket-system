@@ -151,7 +151,7 @@ def create_tables(cursor):
             `customer_phone` VARCHAR(20) NOT NULL,
             `operation_type` ENUM('Booking', 'Refund') NOT NULL,
             `operation_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `status` ENUM('Ready', 'Success', 'Cancelled', 'Refunded') NOT NULL DEFAULT 'Success',
+            `status` ENUM('Ready', 'Success', 'Cancelled', 'RefundPending', 'Refunded') NOT NULL DEFAULT 'Ready',
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`departure_station`) REFERENCES `Stations`(`station_name`),
             FOREIGN KEY (`arrival_station`) REFERENCES `Stations`(`station_name`)

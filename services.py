@@ -389,4 +389,65 @@ class OrderService:
             
         except Exception as e:
             return [], f"Error querying orders: {str(e)}"
+    
+    @staticmethod
+    def cancel_order(order_id):
+        """取消订单"""
+        try:
+            # 检查订单状态
+            check_query = """
+            SELECT status FROM SalesOrders 
+            WHERE order_id = %s
+            """
+            order = db.execute_query(check_query, (order_id,), fetch_one=True)
+            
+            if not order:
+                return False, "Order not found"
+            
+            if order['status'] != 'Ready':
+                return False, "Only orders in Ready status can be cancelled"
+            
+            # 更新订单状态
+            update_query = """
+            UPDATE SalesOrders 
+            SET status = 'Cancelled'
+            WHERE order_id = %s
+            """
+            db.execute_query(update_query, (order_id,))
+            
+            return True, "Order cancelled successfully"
+            
+        except Exception as e:
+            return False, f"Failed to cancel order: {str(e)}"
+
+    @staticmethod
+    def request_refund(order_id):
+        """申请退款"""
+        try:
+            # 检查订单状态
+            check_query = """
+            SELECT status FROM SalesOrders 
+            WHERE order_id = %s
+            """
+            order = db.execute_query(check_query, (order_id,), fetch_one=True)
+            
+            if not order:
+                return False, "Order not found"
+            
+            if order['status'] != 'Success':
+                return False, "Only successful orders can request refund"
+            
+            # 更新订单状态为待退款
+            update_query = """
+            UPDATE SalesOrders 
+            SET status = 'RefundPending',
+                operation_type = 'Refund'
+            WHERE order_id = %s
+            """
+            db.execute_query(update_query, (order_id,))
+            
+            return True, "Refund request submitted successfully"
+            
+        except Exception as e:
+            return False, f"Failed to request refund: {str(e)}"
 

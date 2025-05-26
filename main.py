@@ -139,7 +139,7 @@ def create_booking_window(train_info):
     Button(booking_window, text="Cancel", 
            command=booking_window.destroy).pack(pady=5)
 
-def display_table(get_data_func, columns, enable_booking=False):
+def display_table(get_data_func, columns, enable_booking=False, is_order_view=False):
     """显示数据表格窗口"""
     data_window = create_modal_window(
         main_window,
@@ -259,6 +259,74 @@ def display_table(get_data_func, columns, enable_booking=False):
         # 调整其他按钮的位置
         Button(data_window, text="Close", 
                command=data_window.destroy).grid(row=3, column=0, pady=5)
+
+    # 添加订单操作按钮
+    if is_order_view:
+        def on_select(event):
+            selected_items = tree.selection()
+            if not selected_items:
+                return
+            item = selected_items[0]
+            values = tree.item(item)['values']
+            order_status = values[-1]  # status是最后一列
+            cancel_btn['state'] = 'normal' if order_status == 'Ready' else 'disabled'
+            refund_btn['state'] = 'normal' if order_status == 'Success' else 'disabled'
+
+        def cancel_order():
+            selected_items = tree.selection()
+            if not selected_items:
+                messagebox.showwarning("Warning", "Please select an order first")
+                return
+            item = selected_items[0]
+            order_id = tree.item(item)['values'][0]
+            
+            if show_confirmation("Confirm Cancel", "Are you sure you want to cancel this order?"):
+                success, message = OrderService.cancel_order(order_id)
+                if success:
+                    show_message("Success", message)
+                    # 刷新订单列表
+                    tree.delete(*tree.get_children())
+                    data, _ = get_data_func()
+                    if data:
+                        for row in data:
+                            tree.insert("", "end", values=[str(item) if item is not None else "-" for item in row])
+                else:
+                    show_error("Error", message)
+
+        def request_refund():
+            selected_items = tree.selection()
+            if not selected_items:
+                messagebox.showwarning("Warning", "Please select an order first")
+                return
+            item = selected_items[0]
+            order_id = tree.item(item)['values'][0]
+            
+            if show_confirmation("Confirm Refund", "Are you sure you want to request a refund for this order?"):
+                success, message = OrderService.request_refund(order_id)
+                if success:
+                    show_message("Success", message)
+                    # 刷新订单列表
+                    tree.delete(*tree.get_children())
+                    data, _ = get_data_func()
+                    if data:
+                        for row in data:
+                            tree.insert("", "end", values=[str(item) if item is not None else "-" for item in row])
+                else:
+                    show_error("Error", message)
+
+        tree.bind('<<TreeviewSelect>>', on_select)
+        
+        # 添加操作按钮框架
+        action_frame = tk.Frame(data_window)
+        action_frame.grid(row=2, column=0, pady=5)
+        
+        cancel_btn = Button(action_frame, text="Cancel Order", state='disabled', command=cancel_order)
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+        
+        refund_btn = Button(action_frame, text="Request Refund", state='disabled', command=request_refund)
+        refund_btn.pack(side=tk.LEFT, padx=5)
+
+    Button(data_window, text="Close", command=data_window.destroy).grid(row=3, column=0, pady=5)
 
 def center_window(window):
     """将窗口居中显示"""
@@ -409,7 +477,8 @@ def show_order_query_frame():
             lambda: OrderService.get_orders_by_passenger(name, id_card),
             ["order_id", "train_number", "train_type", "From", "To", 
              "Price", "customer_name", "customer_phone", "operation_type", 
-             "operation_time", "status"]
+             "operation_time", "status"],
+            is_order_view=True  # 标记为订单视图
         )
 
     Button(main_window, text="Query", 
