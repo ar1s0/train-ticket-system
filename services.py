@@ -642,7 +642,7 @@ class SalespersonService:
             """
 
             result = db.execute_query(query, (salesperson_id, password), fetch_one=True)
-            
+
             if result:
                 return True, result
             return False, "Invalid credentials"

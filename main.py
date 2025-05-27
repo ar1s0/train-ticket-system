@@ -2,10 +2,14 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, Toplevel, Label, Entry, Button
 from tkinter import ttk
 import datetime
+import threading
+import os
+import json
 
 from services import TrainService, StationService, PriceService, TicketService, OrderService, SalespersonService
 from database import db 
 from db_setup import setup_database
+from db_maintenance import backup_database, restore_database, delete_backup
 
 main_window = None  # To hold the reference to the main Tkinter window
 
@@ -492,6 +496,10 @@ def show_main_menu_frame():
     Button(main_window, text="View Staff Performance", 
            command=lambda: show_staff_login_for_report(), width=30).pack(pady=5)
 
+    # Add database maintenance button (before Exit button)
+    Button(main_window, text="Database Maintenance", 
+           command=show_database_maintenance_frame, width=30).pack(pady=5)
+
     Button(main_window, text="Exit", command=main_window.quit, width=30).pack(pady=5)
 
 # 添加新函数用于验证管理员身份
@@ -756,6 +764,263 @@ def show_staff_performance_report():
           
     Button(report_window, text="Cancel", 
            command=report_window.destroy).pack(pady=5)
+
+def show_database_maintenance_frame():
+    """显示数据库维护界面"""
+    def verify_manager():
+        login_window = create_modal_window(
+            main_window,
+            "Manager Authentication",
+            "300x200"
+        )
+        
+        Label(login_window, text="Manager Login Required", 
+              font=("Arial", 12)).pack(pady=10)
+        
+        Label(login_window, text="Manager ID:").pack()
+        id_entry = Entry(login_window)
+        id_entry.insert(0, "SP001")  # 默认值
+        id_entry.pack(pady=5)
+        
+        Label(login_window, text="Password:").pack()
+        password_entry = Entry(login_window, show="*")
+        password_entry.insert(0, "1")  # 默认值
+        password_entry.pack(pady=5)
+        
+        def on_verify():
+            staff_id = id_entry.get().strip()
+            password = password_entry.get().strip()
+            
+            success, result = SalespersonService.verify_credentials(staff_id, password)
+            
+            if success and result.get('role') == 'Manager':
+                login_window.destroy()
+                show_maintenance_options()
+            else:
+                show_error("Access Denied", "Only managers can access database maintenance")
+                login_window.destroy()
+        
+        Button(login_window, text="Verify", 
+               command=on_verify).pack(pady=10)
+        Button(login_window, text="Cancel", 
+               command=login_window.destroy).pack(pady=5)
+
+    # 直接调用验证函数
+    verify_manager()
+
+    def show_maintenance_options():
+        maintenance_window = create_modal_window(
+            main_window,
+            "Database Maintenance",
+            "600x400"
+        )
+        
+        # 创建框架来组织界面
+        top_frame = ttk.Frame(maintenance_window)
+        top_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # 创建Treeview来显示备份列表
+        columns = ("Database", "Created", "Type", "Description")
+        backup_tree = ttk.Treeview(maintenance_window, columns=columns, show="headings")
+        
+        # 设置列标题
+        for col in columns:
+            backup_tree.heading(col, text=col)
+            backup_tree.column(col, width=100)
+        
+        backup_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+
+        def list_backups():
+            """列出所有备份信息，从本地JSON文件读取，按时间戳倒序排序"""
+            backups = []
+            backup_dir = "backups"
+            history_file = os.path.join(backup_dir, "backup_history.json")
+            
+            # 确保目录存在
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+                return backups
+                
+            # 读取备份历史记录
+            if os.path.exists(history_file):
+                try:
+                    with open(history_file, 'r') as f:
+                        history = json.load(f)
+                        
+                    # 格式化每个备份的信息并添加原始时间戳用于排序
+                    for backup in history:
+                        timestamp = backup.get('timestamp', '')
+                        backups.append({
+                            'database': backup.get('database', ''),
+                            'created': datetime.datetime.fromisoformat(
+                                timestamp
+                            ).strftime('%Y-%m-%d %H:%M:%S'),
+                            'type': backup.get('type', 'Unknown'),
+                            'description': backup.get('description', ''),
+                            'raw_timestamp': timestamp  # 添加原始时间戳用于排序
+                        })
+                    
+                    # 按时间戳倒序排序
+                    backups.sort(key=lambda x: x['raw_timestamp'], reverse=True)
+                    
+                    # 移除排序用的临时字段
+                    for backup in backups:
+                        del backup['raw_timestamp']
+                        
+                except Exception as e:
+                    print(f"Error reading backup history: {e}")
+                    
+            return backups
+                
+        
+        def refresh_backup_list():
+            # 清空现有项目
+            for item in backup_tree.get_children():
+                backup_tree.delete(item)
+                
+            # 获取备份列表
+            backups = list_backups()
+            
+            # 读取详细信息
+            history_file = os.path.join("backups", "backup_history.json")
+            history_data = {}
+            if os.path.exists(history_file):
+                try:
+                    with open(history_file, 'r') as f:
+                        history = json.load(f)
+                        history_data = {h['database']: h for h in history}
+                except:
+                    pass
+            
+            # 插入数据
+            for backup in backups:
+                db_name = backup['database']
+                created = backup['created']
+                
+                # 获取额外信息
+                backup_type = "Unknown"
+                description = ""
+                if db_name in history_data:
+                    backup_type = history_data[db_name].get('type', 'Unknown')
+                    description = history_data[db_name].get('description', '')
+                    
+                backup_tree.insert("", tk.END, values=(db_name, created, backup_type, description))
+        
+        def create_new_backup():
+            backup_info_window = create_modal_window(
+                maintenance_window,
+                "Backup Information",
+                "400x200"
+            )
+            
+            Label(backup_info_window, text="Create New Backup", 
+                  font=("Arial", 12)).pack(pady=10)
+            
+            # 添加备注输入框
+            Label(backup_info_window, text="Description:").pack()
+            description_entry = Entry(backup_info_window, width=40)
+            description_entry.pack(pady=5)
+            
+            # 添加备份类型选择
+            Label(backup_info_window, text="Backup Type:").pack()
+            backup_type = ttk.Combobox(backup_info_window, 
+                                      values=["Daily", "Weekly", "Monthly", "Manual"],
+                                      state="readonly")
+            backup_type.set("Manual")
+            backup_type.pack(pady=5)
+            
+            def do_backup():
+                description = description_entry.get().strip()
+                type_value = backup_type.get()
+                backup_info_window.destroy()
+                
+                # 显示进度窗口
+                progress_window = create_modal_window(
+                    maintenance_window,
+                    "Backup in Progress",
+                    "300x100"
+                )
+                
+                Label(progress_window, text="Creating backup...", 
+                      font=("Arial", 12)).pack(pady=20)
+                
+                def backup_thread():
+                    backup_db = backup_database(description=description, 
+                                             backup_type=type_value)
+                    progress_window.destroy()
+                    if backup_db:
+                        show_message("Success", 
+                                   f"Database backup created:\n{backup_db}")
+                        refresh_backup_list()
+                    else:
+                        show_error("Error", "Failed to create backup")
+                
+                threading.Thread(target=backup_thread, daemon=True).start()
+            
+            Button(backup_info_window, text="Start Backup", 
+                   command=do_backup).pack(pady=10)
+            Button(backup_info_window, text="Cancel", 
+                   command=backup_info_window.destroy).pack(pady=5)
+        
+        def restore_selected_backup():
+            selected = backup_tree.selection()
+            if not selected:
+                show_error("Error", "Please select a backup to restore")
+                return
+                
+            backup_db = backup_tree.item(selected[0])['values'][0]
+            
+            if show_confirmation("Confirm Restore", 
+                               "This will overwrite the current database. Continue?"):
+                progress_window = create_modal_window(
+                    maintenance_window,
+                    "Restore in Progress",
+                    "300x100"
+                )
+                
+                Label(progress_window, text="Restoring database...", 
+                      font=("Arial", 12)).pack(pady=20)
+                
+                def restore_thread():
+                    success = restore_database(backup_db)
+                    progress_window.destroy()
+                    if success:
+                        show_message("Success", "Database restored successfully")
+                    else:
+                        show_error("Error", "Failed to restore database")
+                
+                threading.Thread(target=restore_thread, daemon=True).start()
+        
+        def delete_selected_backup():
+            selected = backup_tree.selection()
+            if not selected:
+                show_error("Error", "Please select a backup to delete")
+                return
+                
+            backup_db = backup_tree.item(selected[0])['values'][0]
+            
+            if show_confirmation("Confirm Delete", 
+                               f"Delete backup {backup_db}?"):
+                if delete_backup(backup_db):
+                    show_message("Success", "Backup deleted successfully")
+                    refresh_backup_list()
+                else:
+                    show_error("Error", "Failed to delete backup")
+        
+        # 添加按钮
+        Button(top_frame, text="Create Backup", 
+               command=create_new_backup).pack(side=tk.LEFT, padx=5)
+        Button(top_frame, text="Restore Selected", 
+               command=restore_selected_backup).pack(side=tk.LEFT, padx=5)
+        Button(top_frame, text="Delete Selected", 
+               command=delete_selected_backup).pack(side=tk.LEFT, padx=5)
+        Button(top_frame, text="Refresh", 
+               command=refresh_backup_list).pack(side=tk.LEFT, padx=5)
+        Button(maintenance_window, text="Close", 
+               command=maintenance_window.destroy).pack(pady=10)
+        
+        # 初始加载备份列表
+        refresh_backup_list()
 
 # --- Main Application Logic ---
 def run_gui_app():
