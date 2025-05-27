@@ -125,8 +125,9 @@ def insert_stopovers_from_csv(cursor, train_seats, station_ids):
             departure_time = datetime.strptime(row['departure_time'], '%Y-%m-%d %H:%M:%S')
 
         cursor.execute(
-            "INSERT INTO `Stopovers` (`train_number`, `station_id`,`arrival_time`, `departure_time`, `start_date`, `stop_order`, `seats`) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (row['train_number'], station_id, arrival_time, departure_time, datetime.strptime(row['start_date'], '%Y-%m-%d').date(), int(row['stop_order']), train_seats[row['train_number']])
+            "INSERT INTO `Stopovers` (`train_number`, `station_id`,`arrival_time`, `departure_time`, `start_date`, `stop_order`, `seats`, `distance`) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (row['train_number'], station_id, arrival_time, departure_time, datetime.strptime(row['start_date'], '%Y-%m-%d').date(), 
+             int(row['stop_order']), train_seats[row['train_number']], int(row['distance']) if row['distance'] else 0)
         )
         inserted_count += 1
     

@@ -108,6 +108,7 @@ def create_tables(cursor):
             `departure_time` DATETIME NULL,
             `stop_order` INT NOT NULL CHECK (`stop_order` > 0),
             `seats` INT NOT NULL CHECK (`seats` >= 0),
+            `distance` INT NULL,
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`station_id`) REFERENCES `Stations`(`station_id`),
             UNIQUE (`train_number`, `station_id`, `start_date`)
