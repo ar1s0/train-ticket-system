@@ -4,24 +4,6 @@ from mysql.connector import Error
 
 class TrainService:
     @staticmethod
-    def add_train(train_number, train_type, total_seats, dep_station_name, arr_station_name):
-        dep_station = Station.find_one({'station_name': dep_station_name})
-        arr_station = Station.find_one({'station_name': arr_station_name})
-        if not dep_station or not arr_station:
-            return False, "Departure or arrival station not found. Please add stations first."
-
-        new_train = Train(
-            train_number=train_number,
-            train_type=train_type,
-            total_seats=total_seats,
-            departure_station_id=dep_station.station_id,
-            arrival_station_id=arr_station.station_id
-        )
-        if new_train.save():
-            return True, f"Train {train_number} added successfully."
-        return False, "Failed to add train."
-
-    @staticmethod
     def get_train_route(train_number, departure_date=None):
         """获取列车路线信息
     
@@ -95,17 +77,6 @@ class TrainService:
 
 class StationService:
     @staticmethod
-    def add_station(station_name, station_code=None):
-        existing = Station.find_one({'station_name': station_name})
-        if existing:
-            return False, f"Station '{station_name}' already exists."
-
-        new_station = Station(station_name=station_name, station_code=station_code)
-        if new_station.save():
-            return True, f"Station '{station_name}' added successfully."
-        return False, f"Failed to add station '{station_name}'."
-
-    @staticmethod
     def list_all_stations():
         stations = Station.find_all()
         station_data = []
@@ -120,47 +91,6 @@ class StationService:
                 str(s.get('station_code', 'N/A'))
             ])
         return station_data, None
-
-class PriceService:
-    @staticmethod
-    def add_price(train_number, dep_station_name, arr_station_name, price_amount):
-        dep_station = Station.find_one({'station_name': dep_station_name})
-        arr_station = Station.find_one({'station_name': arr_station_name})
-        if not dep_station or not arr_station:
-            return False, "Departure or arrival station not found for price rule."
-
-        train = Train.find_one({'train_number': train_number})
-        if not train:
-            return False, f"Train {train_number} not found."
-
-        new_price = Price(
-            train_number=train_number,
-            departure_station_id=dep_station.station_id,
-            arrival_station_id=arr_station.station_id,
-            price=price_amount
-        )
-        if new_price.save():
-            return True, f"Price for {train_number} ({dep_station_name}-{arr_station_name}) added successfully."
-        return False, "Failed to add price rule."
-
-    @staticmethod
-    def list_prices_for_train(train_number):
-        prices = Price.find_all({'train_number': train_number})
-        price_data = []
-        
-        if not prices:
-            return price_data, f"No prices found for train {train_number}."
-
-        for p in prices:
-            dep_station = Station.find_one({'station_id': p.get('departure_station_id')})
-            arr_station = Station.find_one({'station_id': p.get('arrival_station_id')})
-            price_data.append([
-                dep_station.get('station_name', 'Unknown') if dep_station else 'Unknown',
-                arr_station.get('station_name', 'Unknown') if arr_station else 'Unknown',
-                f"${float(p.get('price', 0)):.2f}"
-            ])
-        return price_data, None
-
 
 class TicketService:
     @staticmethod
@@ -213,7 +143,9 @@ class TicketService:
             route_query = """
             SELECT 
                 s1.stop_order as dep_stop_order,
+                s1.distance as dep_distance,
                 s2.stop_order as arr_stop_order,
+                s2.distance as arr_distance,
                 s1.departure_time,
                 s2.arrival_time,
                 MIN(s3.seats) as min_seats,
@@ -246,59 +178,23 @@ class TicketService:
             if not route_info:
                 continue
             
-            # Step 4.2: 获取站点总数以计算价格比例
-            stopover_count_query = """
-            SELECT COUNT(*) AS count 
-            FROM Stopovers 
-            WHERE train_number = %s 
-            AND start_date = %s
-            """
-            
-            stopover_count = db.execute_query(
-                stopover_count_query,
-                (train_number, start_date),
-                fetch_one=True
-            )['count']
-            
-            # Step 4.3: 获取票价信息
-            price_query = """
-            SELECT price
+            base_price_query = """
+            SELECT price_per_ten_miles as price
             FROM Prices
             WHERE train_number = %s
-            AND departure_station_id = %s
-            AND arrival_station_id = %s
+            LIMIT 1
             """
             
-            price_result = db.execute_query(
-                price_query,
-                (train_number, dep_station.get('station_id'), arr_station.get('station_id')),
+            base_price_result = db.execute_query(
+                base_price_query,
+                (train_number,),
                 fetch_one=True
             )
             
-            if not price_result:
-                # 如果没有直达价格，尝试计算比例价格
-                base_price_query = """
-                SELECT price
-                FROM Prices
-                WHERE train_number = %s
-                LIMIT 1
-                """
-                
-                base_price_result = db.execute_query(
-                    base_price_query,
-                    (train_number,),
-                    fetch_one=True
-                )
-                
-                if not base_price_result:
-                    continue  # 没有价格信息，跳过
-                
-                # 按站点比例计算价格
-                segment_ratio = (route_info['arr_stop_order'] - route_info['dep_stop_order']) / (stopover_count - 1)
-                price = float(base_price_result['price']) * segment_ratio
-            else:
-                price = float(price_result['price'])
+            if not base_price_result:
+                continue  # 没有价格信息，跳过
             
+            price = float(base_price_result['price']) * (route_info['arr_distance'] - route_info['dep_distance']) / 10
             # 四舍五入到一位小数
             price = round(price, 1)
             
@@ -326,7 +222,7 @@ class TicketService:
 
 class OrderService:
     @staticmethod
-    def create_order(train_number, train_type, departure_station, arrival_station, 
+    def create_order(train_number, train_type, start_date, departure_station, arrival_station, 
                     price, customer_name, customer_id_card):
         """创建订单"""
         try:
@@ -353,12 +249,12 @@ class OrderService:
             # 插入订单
             order_query = """
             INSERT INTO SalesOrders (
-                order_id, train_number, train_type,
+                order_id, train_number, train_type, start_date,
                 departure_station, arrival_station,
                 price, customer_name, customer_phone, 
                 operation_type, status
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, 
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                 'Booking', 'Ready'
             )
             """
@@ -366,7 +262,7 @@ class OrderService:
             # 执行订单插入
             db.execute_query(
                 order_query,
-                (order_id, train_number, train_type,
+                (order_id, train_number, train_type, start_date,
                  departure_station, arrival_station,
                  price, customer_name, customer['phone'])
             )
@@ -522,7 +418,7 @@ class OrderService:
             # 检查订单状态和信息
             check_query = """
             SELECT status, operation_type, price, 
-                   train_number, departure_station, arrival_station 
+                   train_number, start_date, departure_station, arrival_station 
             FROM SalesOrders 
             WHERE order_id = %s
             """
@@ -547,12 +443,14 @@ class OrderService:
                 JOIN Stations st1 ON st1.station_name = %s
                 JOIN Stations st2 ON st2.station_name = %s
                 WHERE s.train_number = %s
+                AND s.start_date = %s
                 AND s.stop_order >= (
                     SELECT stop_order 
                     FROM Stopovers s2 
                     JOIN Stations st3 ON st3.station_id = s2.station_id 
                     WHERE st3.station_name = %s 
                     AND s2.train_number = %s
+                    AND s2.start_date = %s
                 )
                 AND s.stop_order < (
                     SELECT stop_order 
@@ -560,21 +458,22 @@ class OrderService:
                     JOIN Stations st4 ON st4.station_id = s3.station_id 
                     WHERE st4.station_name = %s 
                     AND s3.train_number = %s
+                    AND s3.start_date = %s
                 )
                 """
                 
                 seats_result = db.execute_query(
                     check_seats_query, 
                     (order['departure_station'], order['arrival_station'],
-                     order['train_number'], order['departure_station'],
-                     order['train_number'], order['arrival_station'],
-                     order['train_number']),
+                     order['train_number'], order['start_date'],
+                     order['departure_station'], order['train_number'], order['start_date'],
+                     order['arrival_station'], order['train_number'], order['start_date']),
                     fetch_one=True
                 )
                 
                 if not seats_result or seats_result['min_seats'] <= 0:
                     return False, "No available seats for this route"
-            
+        
             if original_status == 'Ready':
                 new_status = 'Success' if approve else 'Cancelled'
             else:

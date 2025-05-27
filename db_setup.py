@@ -108,6 +108,7 @@ def create_tables(cursor):
             `departure_time` DATETIME NULL,
             `stop_order` INT NOT NULL CHECK (`stop_order` > 0),
             `seats` INT NOT NULL CHECK (`seats` >= 0),
+            `distance` INT NULL,
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`station_id`) REFERENCES `Stations`(`station_id`),
             UNIQUE (`train_number`, `station_id`, `start_date`)
@@ -119,7 +120,7 @@ def create_tables(cursor):
             `train_number` VARCHAR(10) NOT NULL,
             `departure_station_id` INT NOT NULL,
             `arrival_station_id` INT NOT NULL,
-            `price` DECIMAL(10, 2) NOT NULL CHECK (`price` >= 0),
+            `price_per_ten_miles` DECIMAL(10, 2) NOT NULL CHECK (`price_per_ten_miles` >= 0),
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`departure_station_id`) REFERENCES `Stations`(`station_id`),
             FOREIGN KEY (`arrival_station_id`) REFERENCES `Stations`(`station_id`),
@@ -148,6 +149,7 @@ def create_tables(cursor):
             `order_id` VARCHAR(20) PRIMARY KEY,
             `train_number` VARCHAR(10) NOT NULL,
             `train_type` VARCHAR(20) NOT NULL,
+            `start_date` DATE NOT NULL,
             `departure_station` VARCHAR(20) NOT NULL,
             `arrival_station` VARCHAR(20) NOT NULL,
             `price` DECIMAL(10, 2) NOT NULL,
@@ -215,7 +217,7 @@ def create_views(cursor):
         LEFT JOIN
             `Stations` SS ON S.station_id = SS.station_id
         ORDER BY
-            T.train_number, S.stop_order
+            T.train_number, S.Start_date, S.stop_order
         """,
         """
         DROP VIEW IF EXISTS `PendingOrdersView`
@@ -320,12 +322,14 @@ def create_triggers(cursor):
             FROM Stopovers s2 
             JOIN Stations st2 ON st2.station_id = s2.station_id 
             WHERE s2.train_number = NEW.train_number 
+            AND s2.start_date = NEW.start_date
             AND st2.station_name = NEW.departure_station;
             
             SELECT stop_order INTO arr_order
             FROM Stopovers s3 
             JOIN Stations st3 ON st3.station_id = s3.station_id 
             WHERE s3.train_number = NEW.train_number 
+            AND s3.start_date = NEW.start_date
             AND st3.station_name = NEW.arrival_station;
             
             IF NEW.status = 'Success' AND OLD.status = 'Ready' THEN
@@ -333,6 +337,7 @@ def create_triggers(cursor):
                 JOIN Stations st ON st.station_id = s.station_id
                 SET s.seats = s.seats - 1
                 WHERE s.train_number = NEW.train_number
+                AND s.start_date = NEW.start_date
                 AND s.seats > 0
                 AND s.stop_order >= dep_order
                 AND s.stop_order < arr_order;
@@ -355,12 +360,14 @@ def create_triggers(cursor):
             FROM Stopovers s2 
             JOIN Stations st2 ON st2.station_id = s2.station_id 
             WHERE s2.train_number = NEW.train_number 
+            AND s2.start_date = NEW.start_date
             AND st2.station_name = NEW.departure_station;
             
             SELECT stop_order INTO arr_order
             FROM Stopovers s3 
             JOIN Stations st3 ON st3.station_id = s3.station_id 
             WHERE s3.train_number = NEW.train_number 
+            AND s3.start_date = NEW.start_date
             AND st3.station_name = NEW.arrival_station;
             
             IF NEW.status = 'Refunded' AND OLD.status = 'RefundPending' THEN
@@ -368,6 +375,7 @@ def create_triggers(cursor):
                 JOIN Stations st ON st.station_id = s.station_id
                 SET s.seats = s.seats + 1
                 WHERE s.train_number = NEW.train_number
+                AND s.start_date = NEW.start_date
                 AND s.stop_order >= dep_order
                 AND s.stop_order < arr_order;
             END IF;
