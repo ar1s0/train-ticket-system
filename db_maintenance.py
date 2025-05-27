@@ -4,6 +4,8 @@ import json
 import subprocess
 from subprocess import Popen, PIPE
 from db_config import DB_CONFIG
+from tqdm import tqdm
+import time
 
 def backup_database(backup_dir="backups", description="", backup_type="Manual"):
     """
@@ -134,103 +136,6 @@ def backup_database(backup_dir="backups", description="", backup_type="Manual"):
         print(f"Backup error: {str(e)}")
         return None
 
-def restore_database(backup_db_name):
-    """
-    从备份数据库恢复数据
-    
-    Args:
-        backup_db_name (str): 备份数据库名称
-        
-    Returns:
-        bool: 成功返回True，失败返回False
-    """
-    try:
-        # 1. 验证备份数据库是否存在
-        check_cmd = [
-            'mysql',
-            f'-h{DB_CONFIG["host"]}',
-            f'-P{DB_CONFIG["port"]}',
-            f'-u{DB_CONFIG["user"]}',
-            f'-p{DB_CONFIG["password"]}',
-            '-e',
-            f'SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = "{backup_db_name}";'
-        ]
-        
-        check_process = Popen(check_cmd, stdout=PIPE, stderr=PIPE)
-        stdout, _ = check_process.communicate(timeout=60)
-        
-        if not stdout.strip():
-            print(f"Backup database '{backup_db_name}' not found")
-            return False
-            
-        # 2. 删除当前数据库并重新创建
-        reset_cmd = [
-            'mysql',
-            f'-h{DB_CONFIG["host"]}',
-            f'-P{DB_CONFIG["port"]}',
-            f'-u{DB_CONFIG["user"]}',
-            f'-p{DB_CONFIG["password"]}',
-            '-e',
-            f'DROP DATABASE IF EXISTS {DB_CONFIG["database"]}; CREATE DATABASE {DB_CONFIG["database"]};'
-        ]
-        
-        reset_process = Popen(reset_cmd, stdout=PIPE, stderr=PIPE)
-        _, reset_stderr = reset_process.communicate(timeout=60)
-        
-        if reset_process.returncode != 0:
-            print(f"Failed to reset database: {reset_stderr.decode()}")
-            return False
-            
-        # 3. 使用mysqldump导出备份数据库并通过管道导入到目标数据库
-        dump_cmd = [
-            'mysqldump',
-            f'-h{DB_CONFIG["host"]}',
-            f'-P{DB_CONFIG["port"]}',
-            f'-u{DB_CONFIG["user"]}',
-            f'-p{DB_CONFIG["password"]}',
-            '--routines',
-            '--triggers',
-            '--events',
-            '--single-transaction',
-            '--quick',           # 减少内存使用
-            '--compress',        # 压缩传输数据
-            '--max_allowed_packet=256M',  # 增加包大小
-            backup_db_name
-        ]
-        
-        restore_cmd = [
-            'mysql',
-            f'-h{DB_CONFIG["host"]}',
-            f'-P{DB_CONFIG["port"]}',
-            f'-u{DB_CONFIG["user"]}',
-            f'-p{DB_CONFIG["password"]}',
-            '--max_allowed_packet=256M',  # 增加包大小
-            '--net_buffer_length=1000000',  # 增加网络缓冲区
-            DB_CONFIG["database"]
-        ]
-        
-        dump_process = Popen(dump_cmd, stdout=PIPE, stderr=PIPE)
-        restore_process = Popen(restore_cmd, stdin=dump_process.stdout, stdout=PIPE, stderr=PIPE)
-        dump_process.stdout.close()
-        
-        try:
-            _, stderr = restore_process.communicate(timeout=300)
-            if restore_process.returncode == 0:
-                print(f"Database restored successfully from: {backup_db_name}")
-                return True
-            else:
-                print(f"Restore failed: {stderr.decode()}")
-                return False
-        except subprocess.TimeoutExpired:
-            dump_process.kill()
-            restore_process.kill()
-            print("Restore operation timed out")
-            return False
-            
-    except Exception as e:
-        print(f"Restore error: {str(e)}")
-        return False
-
 def delete_backup(backup_db_name):
     """
     删除指定的备份数据库
@@ -285,3 +190,114 @@ def delete_backup(backup_db_name):
     except Exception as e:
         print(f"Delete backup error: {str(e)}")
         return False
+
+def restore_database(source_db_name):
+    """
+    将指定数据库导出为当前配置的数据库
+    
+    Args:
+        source_db_name (str): 源数据库名称
+        
+    Returns:
+        bool: 成功返回True，失败返回False
+    """
+    try:
+        # 1. 检查源数据库是否存在
+        print(f"\nVerifying source database: {source_db_name}")
+        check_cmd = [
+            'mysql',
+            f'-h{DB_CONFIG["host"]}',
+            f'-P{DB_CONFIG["port"]}',
+            f'-u{DB_CONFIG["user"]}',
+            f'-p{DB_CONFIG["password"]}',
+            '-e',
+            f'SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = "{source_db_name}";'
+        ]
+        
+        check_process = Popen(check_cmd, stdout=PIPE, stderr=PIPE)
+        stdout, _ = check_process.communicate(timeout=30)
+        
+        if not stdout.strip():
+            print(f"❌ Source database '{source_db_name}' not found")
+            return False
+
+        # 2. 创建或重置目标数据库
+        print(f"\nCreating/Resetting database {DB_CONFIG['database']}...")
+        reset_cmd = [
+            'mysql',
+            f'-h{DB_CONFIG["host"]}',
+            f'-P{DB_CONFIG["port"]}',
+            f'-u{DB_CONFIG["user"]}',
+            f'-p{DB_CONFIG["password"]}',
+            '-e',
+            f'DROP DATABASE IF EXISTS `{DB_CONFIG["database"]}`; CREATE DATABASE `{DB_CONFIG["database"]}`;'
+        ]
+        
+        reset_process = Popen(reset_cmd, stdout=PIPE, stderr=PIPE)
+        _, stderr = reset_process.communicate(timeout=60)
+        
+        if reset_process.returncode != 0:
+            print(f"❌ Failed to create database: {stderr.decode()}")
+            return False
+
+        # 3. 导出源数据库并导入到目标数据库
+        print("\nExporting data to target database...")
+        dump_cmd = [
+            'mysqldump',
+            f'-h{DB_CONFIG["host"]}',
+            f'-P{DB_CONFIG["port"]}',
+            f'-u{DB_CONFIG["user"]}',
+            f'-p{DB_CONFIG["password"]}',
+            '--routines',
+            '--triggers',
+            '--events',
+            '--single-transaction',
+            '--quick',
+            '--compress',
+            '--max_allowed_packet=512M',
+            source_db_name
+        ]
+        
+        restore_cmd = [
+            'mysql',
+            f'-h{DB_CONFIG["host"]}',
+            f'-P{DB_CONFIG["port"]}',
+            f'-u{DB_CONFIG["user"]}',
+            f'-p{DB_CONFIG["password"]}',
+            '--max_allowed_packet=512M',
+            '--net_buffer_length=32768',
+            '--default-character-set=utf8',
+            DB_CONFIG["database"]
+        ]
+        
+        # 使用管道直接传输数据
+        dump_process = Popen(dump_cmd, stdout=PIPE, stderr=PIPE)
+        restore_process = Popen(restore_cmd, stdin=dump_process.stdout, stdout=PIPE, stderr=PIPE)
+        dump_process.stdout.close()
+        
+        _, stderr = restore_process.communicate(timeout=300)
+        
+        if restore_process.returncode == 0:
+            print(f"\n✅ Database {source_db_name} successfully exported to {DB_CONFIG['database']}")
+            return True
+        else:
+            print(f"\n❌ Export failed: {stderr.decode()}")
+            return False
+
+    except subprocess.TimeoutExpired:
+        print("\n⚠️ Operation timed out")
+        return False
+    except Exception as e:
+        print(f"\n❌ Export error: {str(e)}")
+        return False
+    
+
+# 使用示例：
+if __name__ == "__main__":
+    # 测试导出功能
+    source_database = "test"
+    result = restore_database(source_database)
+    if result:
+        print("Test database created successfully")
+    else:
+        print("Failed to create test database")

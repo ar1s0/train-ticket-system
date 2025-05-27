@@ -1,15 +1,8 @@
 [
   {
-    "timestamp": "2025-05-27T11:09:06.705103",
-    "database": "train_ticket_system_backup_20250527_110905",
-    "description": "fir",
-    "type": "Weekly",
-    "size": "0"
-  },
-  {
-    "timestamp": "2025-05-27T11:28:50.758985",
-    "database": "train_ticket_system_backup_20250527_112849",
-    "description": "test",
+    "timestamp": "2025-05-27T13:25:10.659701",
+    "database": "train_ticket_system_backup_20250527_132509",
+    "description": "123",
     "type": "Manual",
     "size": "0"
   }

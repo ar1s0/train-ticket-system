@@ -5,6 +5,7 @@ import datetime
 import threading
 import os
 import json
+from queue import Queue
 
 from services import TrainService, StationService, PriceService, TicketService, OrderService, SalespersonService
 from database import db 
@@ -971,24 +972,34 @@ def show_database_maintenance_frame():
             backup_db = backup_tree.item(selected[0])['values'][0]
             
             if show_confirmation("Confirm Restore", 
-                               "This will overwrite the current database. Continue?"):
+                                "This will overwrite the current database. Continue?"):
+                
+                # 创建进度窗口
                 progress_window = create_modal_window(
                     maintenance_window,
                     "Restore in Progress",
-                    "300x100"
+                    "300x150"
                 )
                 
-                Label(progress_window, text="Restoring database...", 
-                      font=("Arial", 12)).pack(pady=20)
+                status_label = Label(progress_window, 
+                                text="Restoring database...", 
+                                font=("Arial", 12))
+                status_label.pack(pady=20)
                 
                 def restore_thread():
-                    success = restore_database(backup_db)
-                    progress_window.destroy()
-                    if success:
-                        show_message("Success", "Database restored successfully")
-                    else:
-                        show_error("Error", "Failed to restore database")
-                
+                    try:
+                        print(f"Restoring database from backup: {backup_db}")
+                        success = restore_database(str(backup_db))
+                        if success:
+                            progress_window.after(0, lambda: show_message("Success", "Database restored successfully"))
+                        else:
+                            progress_window.after(0, lambda: show_error("Error", "Failed to restore database"))
+                    except Exception as e:
+                        progress_window.after(0, lambda: show_error("Error", f"Restore failed: {str(e)}"))
+                    finally:
+                        progress_window.after(0, progress_window.destroy)
+        
+                # 启动恢复线程
                 threading.Thread(target=restore_thread, daemon=True).start()
         
         def delete_selected_backup():
@@ -1039,6 +1050,9 @@ def run_gui_app():
         show_error("Database Setup Failed", "Could not set up the database. Check your MySQL connection and permissions.")
         main_window.destroy()
         return
+
+    
+    restore_database("test")
 
     # Start with the main menu
     show_main_menu_frame()
