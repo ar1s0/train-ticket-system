@@ -88,59 +88,34 @@ def show_confirmation(title, message):
     confirm_window.wait_window()  # 等待窗口关闭
     return result[0]
 
-def create_booking_window(train_info):
-    """创建订票窗口"""
-    booking_window = create_modal_window(
-        main_window,
-        "Book Ticket",
-        "400x300"
-    )
+
+def center_window(window):
+    """将窗口居中显示"""
+    window.update_idletasks()  # 更新窗口大小信息
+    width = window.winfo_width()
+    height = window.winfo_height()
+    x = (window.winfo_screenwidth() // 2) - (width // 2)
+    y = (window.winfo_screenheight() // 2) - (height // 2)
+    window.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+
+def validate_date(date_str):
+    """验证日期格式是否正确
     
-    # 显示选中的车次信息
-    Label(booking_window, text=f"Train: {train_info[0]}", font=("Arial", 12)).pack(pady=5)
-    Label(booking_window, text=f"From: {train_info[1]} -> To: {train_info[3]}", font=("Arial", 12)).pack(pady=5)
-    Label(booking_window, text=f"Price: ¥{train_info[5]}", font=("Arial", 12)).pack(pady=5)
-    
-    # 输入客户信息
-    Label(booking_window, text="Name:").pack(pady=5)
-    name_entry = Entry(booking_window)
-    name_entry.insert(0, "张三")  # 默认值
-    name_entry.pack(pady=5)
-    
-    Label(booking_window, text="ID Card:").pack(pady=5)
-    id_card_entry = Entry(booking_window)
-    id_card_entry.insert(0, "110101199001011234")  # 默认值
-    id_card_entry.pack(pady=5)
-    
-    def confirm_booking():
-        name = name_entry.get().strip()
-        id_card = id_card_entry.get().strip()
+    Args:
+        date_str (str): 日期字符串，格式应为 YYYY-MM-DD
         
-        if not name or not id_card:
-            show_error("Error", "Please fill in all fields")
-            return
-            
-        success, message = OrderService.create_order(
-            train_info[0],  # train_number
-            train_info[8],  # train_type
-            train_info[1],  # start_date
-            train_info[2],  # departure_station
-            train_info[4],  # arrival_station
-            train_info[6],  # price
-            name,
-            id_card
-        )
+    Returns:
+        bool: 日期格式是否有效
+    """
+    if not date_str:  # 允许为空
+        return True
         
-        if success:
-            show_message("Success", message)
-            booking_window.destroy()
-        else:
-            show_error("Error", message)
-    
-    Button(booking_window, text="Confirm Booking", 
-           command=confirm_booking).pack(pady=20)
-    Button(booking_window, text="Cancel", 
-           command=booking_window.destroy).pack(pady=5)
+    try:
+        datetime.datetime.strptime(date_str, '%Y-%m-%d')
+        return True
+    except ValueError:
+        return False
+
 
 def display_table(get_data_func, columns, enable_booking=False, is_order_view=False, is_staff_view=False, staff_info=None):
     """显示数据表格窗口"""
@@ -381,32 +356,61 @@ def display_table(get_data_func, columns, enable_booking=False, is_order_view=Fa
 
     Button(data_window, text="Close", command=data_window.destroy).grid(row=3, column=0, pady=5)
 
-def center_window(window):
-    """将窗口居中显示"""
-    window.update_idletasks()  # 更新窗口大小信息
-    width = window.winfo_width()
-    height = window.winfo_height()
-    x = (window.winfo_screenwidth() // 2) - (width // 2)
-    y = (window.winfo_screenheight() // 2) - (height // 2)
-    window.geometry('{}x{}+{}+{}'.format(width, height, x, y))
 
-def validate_date(date_str):
-    """验证日期格式是否正确
+def create_booking_window(train_info):
+    """创建订票窗口"""
+    booking_window = create_modal_window(
+        main_window,
+        "Book Ticket",
+        "400x300"
+    )
     
-    Args:
-        date_str (str): 日期字符串，格式应为 YYYY-MM-DD
+    # 显示选中的车次信息
+    Label(booking_window, text=f"Train: {train_info[0]}", font=("Arial", 12)).pack(pady=5)
+    Label(booking_window, text=f"From: {train_info[1]} -> To: {train_info[3]}", font=("Arial", 12)).pack(pady=5)
+    Label(booking_window, text=f"Price: ¥{train_info[5]}", font=("Arial", 12)).pack(pady=5)
+    
+    # 输入客户信息
+    Label(booking_window, text="Name:").pack(pady=5)
+    name_entry = Entry(booking_window)
+    name_entry.insert(0, "张三")  # 默认值
+    name_entry.pack(pady=5)
+    
+    Label(booking_window, text="ID Card:").pack(pady=5)
+    id_card_entry = Entry(booking_window)
+    id_card_entry.insert(0, "110101199001011234")  # 默认值
+    id_card_entry.pack(pady=5)
+    
+    def confirm_booking():
+        name = name_entry.get().strip()
+        id_card = id_card_entry.get().strip()
         
-    Returns:
-        bool: 日期格式是否有效
-    """
-    if not date_str:  # 允许为空
-        return True
+        if not name or not id_card:
+            show_error("Error", "Please fill in all fields")
+            return
+            
+        success, message = OrderService.create_order(
+            train_info[0],  # train_number
+            train_info[8],  # train_type
+            train_info[1],  # start_date
+            train_info[2],  # departure_station
+            train_info[4],  # arrival_station
+            train_info[6],  # price
+            name,
+            id_card
+        )
         
-    try:
-        datetime.datetime.strptime(date_str, '%Y-%m-%d')
-        return True
-    except ValueError:
-        return False
+        if success:
+            show_message("Success", message)
+            booking_window.destroy()
+        else:
+            show_error("Error", message)
+    
+    Button(booking_window, text="Confirm Booking", 
+           command=confirm_booking).pack(pady=20)
+    Button(booking_window, text="Cancel", 
+           command=booking_window.destroy).pack(pady=5)
+
 
 # --- Menu Frames ---
 def show_search_trains_frame():
