@@ -25,7 +25,7 @@ def insert_sample_data():
         price_data = insert_prices_from_config(cursor, train_numbers)
         insert_customers_from_csv(cursor)
         insert_salespersons_from_csv(cursor)  # Add this line
-        insert_sample_orders(cursor)
+        # insert_sample_orders(cursor)
         
         conn.commit()
         print("Sample data inserted successfully!")

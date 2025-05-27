@@ -4,10 +4,8 @@ from tkinter import ttk
 import datetime
 from queue import Queue
 
-from services import TrainService, StationService, TicketService, OrderService, SalespersonService
+from services import TrainService, StationService, TicketService, OrderService
 from database import db 
-from db_setup import setup_database
-from db_maintenance import DatabaseMaintenanceUI, restore_database
 
 main_window = None  # To hold the reference to the main Tkinter window
 
@@ -527,15 +525,6 @@ def run_gui_app():
     main_window.title("Train Station Management System")
     main_window.geometry("500x500")
     
-    # Attempt to set up the database before anything else
-    print("Initializing database setup...")
-    if setup_database():
-        print("Database initialized successfully!")
-    else:
-        show_error("Database Setup Failed", "Could not set up the database. Check your MySQL connection and permissions.")
-        main_window.destroy()
-        return
-
     # Start with the main menu
     show_main_menu_frame()
     

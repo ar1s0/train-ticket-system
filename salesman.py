@@ -504,15 +504,6 @@ def run_gui_app():
     
     main_window.title("Train Station Management System")
     main_window.geometry("500x500")
-    
-    # Attempt to set up the database before anything else
-    print("Initializing database setup...")
-    if setup_database():
-        print("Database initialized successfully!")
-    else:
-        show_error("Database Setup Failed", "Could not set up the database. Check your MySQL connection and permissions.")
-        main_window.destroy()
-        return
 
     # Start with the main menu
     show_main_menu_frame()

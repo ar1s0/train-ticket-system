@@ -116,7 +116,7 @@ class TicketService:
         date_filter = ""
         params = []
         if departure_date:
-            date_filter = "AND DATE(s1.departure_time) = %s"
+            date_filter = "AND DATE(departure_time) = %s"
             params.append(departure_date)
         
         # Step 3: 查询所有经过起点站的列车和发车日期
