@@ -103,14 +103,14 @@ def create_tables(cursor):
             `stopover_id` INT PRIMARY KEY AUTO_INCREMENT,
             `train_number` VARCHAR(10) NOT NULL,
             `station_id` INT NOT NULL,
+            `start_date` DATE NOT NULL,
             `arrival_time` DATETIME NULL,
             `departure_time` DATETIME NULL,
             `stop_order` INT NOT NULL CHECK (`stop_order` > 0),
             `seats` INT NOT NULL CHECK (`seats` >= 0),
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`station_id`) REFERENCES `Stations`(`station_id`),
-            UNIQUE (`train_number`, `station_id`),
-            UNIQUE (`train_number`, `stop_order`)
+            UNIQUE (`train_number`, `station_id`, `start_date`)
         );
         """,
         """
@@ -481,6 +481,7 @@ def create_procedures(cursor):
             IF p_departure_date IS NOT NULL THEN
                 SELECT 
                     s.train_number,
+                    s.start_date,
                     st.station_name,
                     st.station_code,
                     s.arrival_time,
@@ -498,12 +499,13 @@ def create_procedures(cursor):
                     Stations st ON s.station_id = st.station_id
                 WHERE 
                     s.train_number = p_train_number
-                    AND ((DATE(s.departure_time) = p_departure_date OR DATE(s.arrival_time) = p_departure_date))
+                    AND s.start_date = p_departure_date
                 ORDER BY 
                     s.stop_order;
             ELSE
                 SELECT 
                     s.train_number,
+                    s.start_date,
                     st.station_name,
                     st.station_code,
                     s.arrival_time,
@@ -522,7 +524,7 @@ def create_procedures(cursor):
                 WHERE 
                     s.train_number = p_train_number
                 ORDER BY 
-                    s.stop_order;
+                    s.start_date, s.stop_order;
             END IF;
         END;
         """

@@ -418,13 +418,13 @@ def show_search_trains_frame():
     # 出发站
     Label(main_window, text="Departure Station:").pack()
     dep_station_entry = Entry(main_window)
-    dep_station_entry.insert(0, "郑州")
+    dep_station_entry.insert(0, "北京")
     dep_station_entry.pack(pady=5)
 
     # 到达站
     Label(main_window, text="Arrival Station:").pack()
     arr_station_entry = Entry(main_window)
-    arr_station_entry.insert(0, "武汉")
+    arr_station_entry.insert(0, "上海")
     arr_station_entry.pack(pady=5)
 
     # 出发日期
@@ -447,7 +447,7 @@ def show_search_trains_frame():
             lambda: TicketService.search_available_tickets(
                 dep_station, arr_station, departure_date
             ),
-            ["Train No", "From", "Departure Time", "To", "Arrival Time", 
+            ["Train No", "Start Date", "From", "Departure Time", "To", "Arrival Time", 
              "Price", "Seats", "Type"],
             enable_booking=True  # 启用订票功能
         )
@@ -576,7 +576,7 @@ def show_train_route_frame():
                 train_number, 
                 departure_date if departure_date else None
             ),
-            ["Train", "Station", "Code", "Arrival", "Departure", 
+            ["Train", "Start_date", "Station", "Code", "Arrival", "Departure", 
              "Type", "Order", "Sold_tickets"]
         )
     
