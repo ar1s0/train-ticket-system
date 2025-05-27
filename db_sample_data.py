@@ -125,7 +125,7 @@ def insert_stopovers_from_csv(cursor, train_seats, station_ids):
             departure_time = datetime.strptime(row['departure_time'], '%Y-%m-%d %H:%M:%S')
 
         cursor.execute(
-            "INSERT INTO `Stopovers` (`train_number`, `station_id`,`arrival_time`, `departure_time`, `start_date`, `stop_order`, `seats`, `distance`) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO `Stopovers` (`train_number`, `station_id`,`arrival_time`, `departure_time`, `start_date`, `stop_order`, `seats`, `distance`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             (row['train_number'], station_id, arrival_time, departure_time, datetime.strptime(row['start_date'], '%Y-%m-%d').date(), 
              int(row['stop_order']), train_seats[row['train_number']], int(row['distance']) if row['distance'] else 0)
         )
@@ -158,25 +158,23 @@ def insert_prices_from_config(cursor, train_numbers):
         for train_num, dep_id, arr_id, _ in matching_trains:
             # Add some random variation to base price
             base_price = float(row['base_price'])
-            price = round(base_price * random.uniform(0.9, 1.1), 2)
             
             cursor.execute(
                 """INSERT INTO `Prices` 
                    (`train_number`, `departure_station_id`, `arrival_station_id`, 
-                    `price`) 
+                    `price_per_ten_miles`) 
                    VALUES (%s, %s, %s, %s)""",
-                (train_num, dep_id, arr_id, price)
+                (train_num, dep_id, arr_id, base_price)
             )
             
             price_data.append({
                 "train_number": train_num,
                 "departure_station_id": dep_id,
                 "arrival_station_id": arr_id,
-                "price": price
+                "price": base_price
             })
     
     print(f"Inserted {len(price_data)} prices")
-    return price_data
 
 def insert_customers_from_csv(cursor):
     """Insert customers from CSV file"""
@@ -320,7 +318,7 @@ def insert_sample_data():
         station_ids = insert_stations_from_csv(cursor)
         train_numbers = insert_trains_from_csv(cursor, station_ids)
         insert_stopovers_from_csv(cursor, train_numbers, station_ids)
-        price_data = insert_prices_from_config(cursor, train_numbers)
+        insert_prices_from_config(cursor, train_numbers)
         insert_customers_from_csv(cursor)
         insert_salespersons_from_csv(cursor)  # Add this line
         insert_sample_orders(cursor)

@@ -120,7 +120,7 @@ def create_tables(cursor):
             `train_number` VARCHAR(10) NOT NULL,
             `departure_station_id` INT NOT NULL,
             `arrival_station_id` INT NOT NULL,
-            `price` DECIMAL(10, 2) NOT NULL CHECK (`price` >= 0),
+            `price_per_ten_miles` DECIMAL(10, 2) NOT NULL CHECK (`price_per_ten_miles` >= 0),
             FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
             FOREIGN KEY (`departure_station_id`) REFERENCES `Stations`(`station_id`),
             FOREIGN KEY (`arrival_station_id`) REFERENCES `Stations`(`station_id`),

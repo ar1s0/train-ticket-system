@@ -2,12 +2,9 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, Toplevel, Label, Entry, Button
 from tkinter import ttk
 import datetime
-import threading
-import os
-import json
 from queue import Queue
 
-from services import TrainService, StationService, PriceService, TicketService, OrderService, SalespersonService
+from services import TrainService, StationService, TicketService, OrderService, SalespersonService
 from database import db 
 from db_setup import setup_database
 from db_maintenance import DatabaseMaintenanceUI, restore_database
@@ -484,9 +481,6 @@ def show_main_menu_frame():
                StationService.list_all_stations,
                ["ID", "Name", "Code"]
            ), width=30).pack(pady=5)
-
-    Button(main_window, text="View Price Information", 
-           command=show_price_info_frame, width=30).pack(pady=5)
            
     Button(main_window, text="Query My Orders", 
            command=show_order_query_frame, width=30).pack(pady=5)
@@ -587,22 +581,6 @@ def show_train_route_frame():
     Button(main_window, text="Back to Main Menu", 
            command=show_main_menu_frame).pack(pady=20)
 
-def show_price_info_frame():
-    clear_frame(main_window)
-    Label(main_window, text="Price Information", font=("Arial", 14)).pack(pady=10)
-
-    Label(main_window, text="Train Number:").pack()
-    train_num_entry = Entry(main_window)
-    train_num_entry.insert(0, "G1")
-    train_num_entry.pack()
-    
-    Button(main_window, text="List Prices", 
-           command=lambda: display_table(
-               lambda: PriceService.list_prices_for_train(train_num_entry.get()),
-               ["Departure", "Arrival", "Price"]
-           )).pack(pady=5)
-
-    Button(main_window, text="Back to Main Menu", command=show_main_menu_frame).pack(pady=20)
 
 def show_order_query_frame():
     clear_frame(main_window)
