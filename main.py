@@ -125,10 +125,11 @@ def create_booking_window(train_info):
             
         success, message = OrderService.create_order(
             train_info[0],  # train_number
-            train_info[7],  # train_type
-            train_info[1],  # departure_station
-            train_info[3],  # arrival_station
-            train_info[5],  # price
+            train_info[8],  # train_type
+            train_info[1],  # start_date
+            train_info[2],  # departure_station
+            train_info[4],  # arrival_station
+            train_info[6],  # price
             name,
             id_card
         )
@@ -243,7 +244,7 @@ def display_table(get_data_func, columns, enable_booking=False, is_order_view=Fa
                 return
             item = selected_items[0]
             selected_train_info = tree.item(item)['values']
-        
+
         def on_book():
             if not selected_train_info:
                 messagebox.showwarning("Warning", "Please select a train first")

@@ -326,7 +326,7 @@ class TicketService:
 
 class OrderService:
     @staticmethod
-    def create_order(train_number, train_type, departure_station, arrival_station, 
+    def create_order(train_number, train_type, start_date, departure_station, arrival_station, 
                     price, customer_name, customer_id_card):
         """创建订单"""
         try:
@@ -353,12 +353,12 @@ class OrderService:
             # 插入订单
             order_query = """
             INSERT INTO SalesOrders (
-                order_id, train_number, train_type,
+                order_id, train_number, train_type, start_date,
                 departure_station, arrival_station,
                 price, customer_name, customer_phone, 
                 operation_type, status
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, 
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                 'Booking', 'Ready'
             )
             """
@@ -366,7 +366,7 @@ class OrderService:
             # 执行订单插入
             db.execute_query(
                 order_query,
-                (order_id, train_number, train_type,
+                (order_id, train_number, train_type, start_date,
                  departure_station, arrival_station,
                  price, customer_name, customer['phone'])
             )
@@ -522,7 +522,7 @@ class OrderService:
             # 检查订单状态和信息
             check_query = """
             SELECT status, operation_type, price, 
-                   train_number, departure_station, arrival_station 
+                   train_number, start_date, departure_station, arrival_station 
             FROM SalesOrders 
             WHERE order_id = %s
             """
@@ -547,12 +547,14 @@ class OrderService:
                 JOIN Stations st1 ON st1.station_name = %s
                 JOIN Stations st2 ON st2.station_name = %s
                 WHERE s.train_number = %s
+                AND s.start_date = %s
                 AND s.stop_order >= (
                     SELECT stop_order 
                     FROM Stopovers s2 
                     JOIN Stations st3 ON st3.station_id = s2.station_id 
                     WHERE st3.station_name = %s 
                     AND s2.train_number = %s
+                    AND s2.start_date = %s
                 )
                 AND s.stop_order < (
                     SELECT stop_order 
@@ -560,21 +562,22 @@ class OrderService:
                     JOIN Stations st4 ON st4.station_id = s3.station_id 
                     WHERE st4.station_name = %s 
                     AND s3.train_number = %s
+                    AND s3.start_date = %s
                 )
                 """
                 
                 seats_result = db.execute_query(
                     check_seats_query, 
                     (order['departure_station'], order['arrival_station'],
-                     order['train_number'], order['departure_station'],
-                     order['train_number'], order['arrival_station'],
-                     order['train_number']),
+                     order['train_number'], order['start_date'],
+                     order['departure_station'], order['train_number'], order['start_date'],
+                     order['arrival_station'], order['train_number'], order['start_date']),
                     fetch_one=True
                 )
                 
                 if not seats_result or seats_result['min_seats'] <= 0:
                     return False, "No available seats for this route"
-            
+        
             if original_status == 'Ready':
                 new_status = 'Success' if approve else 'Cancelled'
             else:
