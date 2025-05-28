@@ -109,7 +109,7 @@ def create_tables(cursor):
             `stop_order` INT NOT NULL CHECK (`stop_order` > 0),
             `seats` INT NOT NULL CHECK (`seats` >= 0),
             `distance` INT NULL,
-            FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
+            FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`) ON DELETE CASCADE,
             FOREIGN KEY (`station_id`) REFERENCES `Stations`(`station_id`),
             UNIQUE (`train_number`, `station_id`, `start_date`)
         );
@@ -121,7 +121,7 @@ def create_tables(cursor):
             `departure_station_id` INT NOT NULL,
             `arrival_station_id` INT NOT NULL,
             `price_per_ten_miles` DECIMAL(10, 2) NOT NULL CHECK (`price_per_ten_miles` >= 0),
-            FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
+            FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`) ON DELETE CASCADE,
             FOREIGN KEY (`departure_station_id`) REFERENCES `Stations`(`station_id`),
             FOREIGN KEY (`arrival_station_id`) REFERENCES `Stations`(`station_id`),
             UNIQUE (`train_number`, `departure_station_id`, `arrival_station_id`)
@@ -157,10 +157,7 @@ def create_tables(cursor):
             `customer_phone` VARCHAR(20) NOT NULL,
             `operation_type` ENUM('Booking', 'Refund') NOT NULL,
             `operation_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `status` ENUM('Ready', 'Success', 'Cancelled', 'RefundPending', 'Refunded') NOT NULL DEFAULT 'Ready',
-            FOREIGN KEY (`train_number`) REFERENCES `Trains`(`train_number`),
-            FOREIGN KEY (`departure_station`) REFERENCES `Stations`(`station_name`),
-            FOREIGN KEY (`arrival_station`) REFERENCES `Stations`(`station_name`)
+            `status` ENUM('Ready', 'Success', 'Cancelled', 'RefundPending', 'Refunded') NOT NULL DEFAULT 'Ready'
         );
         """,
         """
